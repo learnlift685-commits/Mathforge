@@ -1,64 +1,73 @@
-MATHFORGE NRW V0.2 — BUILD- UND QUALITÄTSBERICHT
-Stand: 20.07.2026
+MATHFORGE NRW V0.3 — BUILD- UND QA-BERICHT
+===========================================
 
-STRUKTUR
-[OK] Flache GitHub-Pages-Struktur ohne Unterordner
-[OK] Relative Verknüpfung von CSS und allen JavaScript-Dateien
-[OK] Kein npm, kein Build-System, kein Backend
-[OK] V0.1-Zustandsmigration auf mathforge_nrw_v02
-[OK] App bleibt auch in restriktiven Vorschau-Modi ohne Local-Storage-Absturz bedienbar
+BUILD-TYP
+- vollständig flache GitHub-Pages-Struktur
+- kein npm
+- kein Build-Befehl
+- kein Backend
+- keine Anmeldung oder Cloud
+- alle App-Dateien direkt nebeneinander
 
-INHALT
-[OK] 24 Lernmodule
-[OK] 72 ausführliche Theorieblöcke
-[OK] 45 geführte Worked Examples
-[OK] 96 feste Aufgaben mit Erklärungen und Lösungswegen
-[OK] 12 Diagnoseaufgaben
-[OK] 31 offizielle EF-Kompetenzen verknüpft
-[OK] 27 Generatorfamilien
-[OK] 36 Formeleinträge mit Bedeutungs- und Einsatzhinweisen
-[OK] 8 Lernphasen
-[OK] 4 Mastery-Dimensionen
-[OK] 5 Step-Coach-Missionstypen
-[OK] 2 dynamische Klausurformate
+INHALTSUMFANG
+- 24 Masterclasses
+- 72 Theorieblöcke
+- 45 ausführliche Worked Examples
+- 96 feste Lernaufgaben
+- 12 Diagnoseaufgaben
+- 34 Generatorfamilien
+- 8 mehrstufige Rechenweg-Missionen
+- 24 individuelle Warum-Labore
+- 72 vertiefende Warum-Fragen
+- 72 typische Fehlerbilder mit Reparaturhinweisen
+- 36 Formeln mit Bedeutung und Einsatzhinweisen
+- 4 Klausurformate
+- 4 Arten räumlicher Geradenszenen
+- 31 verknüpfte NRW-EF-Kompetenzen
 
-AUTOMATISCHE ENGINE-PRÜFUNGEN
-[OK] JavaScript-Syntax: app.js
-[OK] JavaScript-Syntax: mathforge-data.js
-[OK] JavaScript-Syntax: mathforge-engine.js
-[OK] Eindeutige Lektions- und Aufgaben-IDs
-[OK] Jede Lektion besitzt Ziele, Voraussetzungen, Kernidee, Algorithmus, Mikrokompetenzen und Exit-Tickets
-[OK] Alle 96 festen Aufgaben akzeptieren ihre definierte Lösung
-[OK] Alle 12 Diagnoseaufgaben akzeptieren ihre definierte Lösung
-[OK] 8.100 zufällig erzeugte Aufgaben akzeptieren ihre jeweils erzeugte Lösung
-[OK] 1.000 zufällig erzeugte Coach-Missionen akzeptieren alle mathematischen Teilschritte
-[OK] Alle 31 Kompetenzen sind mindestens einem Lernmodul zugeordnet
-[OK] Mathematische Äquivalenztests bestanden
-[OK] 12x³−4x und −4x+12x³ werden als äquivalent erkannt
-[OK] −x² wird korrekt als −(x²) und nicht als (−x)² ausgewertet
-[OK] Dezimalkomma, Lösungsmenge, Punkt und Vektor werden getrennt geparst
-[OK] Bruchkomponenten in Punkten und Vektoren werden akzeptiert
+NEUE V0.3-SYSTEME
+- Antwort- und Begründungspunkte getrennt
+- automatisierte Teilpunkt-Näherung
+- First-Divergence-Fehlerdiagnose
+- Rechenweg-Missionen mit 4 bis 7 Stufen
+- Kurvendiskussions-Simulator mit f, f′ und f″
+- drehbarer 3D-Vektorraum
+- Klausur-Erwartungshorizont
+- Klausurhistorie
+- adaptiver 7-Tage-Wochenplan
+- Fehlerreparatur in drei Stufen
+- automatische Migration des V0.2-Lernstands
 
-UI- UND LAUFZEITPRÜFUNGEN
-[OK] App in echtem Headless-Chromium mit eingebetteten lokalen Dateien gestartet
-[OK] Keine JavaScript- oder Konsolenfehler in der geprüften Laufzeit
-[OK] Zehn Hauptrouten interaktiv geöffnet
-[OK] Alle 24 Masterclasses auffindbar
-[OK] Alle acht Phasen einer Masterclass gerendert
-[OK] Infinite-Forge-Aufgabe mit Eingabefeld erzeugt
-[OK] Step-Coach-Mission gestartet
-[OK] Graphen-Labor samt Canvas gerendert
-[OK] Formelwerk mit erweiterten Einträgen gerendert
-[OK] Keine sichtbaren Platzhalter wie undefined oder [object Object] in den getesteten Hauptrouten
+AUTOMATISCHE ENGINE-TESTS
+- 6.800 zufällig erzeugte Generatoraufgaben
+- 1.600 zufällig erzeugte Rechenweg-Missionen
+- 2.500 räumliche Geradenszenen
+- 400 vollständig erzeugte Probeklausuren
+- Selbstprüfung der hinterlegten Musterantworten
+- Prüfung aller Punktbereiche und Teilpunktgrenzen
+- Ergebnis: 0 erkannte Testfehler
 
-GEPRÜFTE ANTWORTARTEN
-[OK] Multiple Choice
-[OK] Zahlen mit Toleranz und Dezimalkomma
-[OK] mathematisch äquivalente Terme
-[OK] ungeordnete Lösungsmengen
-[OK] Punkte mit zwei oder drei Koordinaten
-[OK] Vektoren und Bruchkomponenten
-[OK] textliche Erklärungen mit Mindesttiefe und Fachbegriffen
+BROWSER-QA
+- Chromium Desktop 1440 px
+- Chromium Mobile 390 px
+- Dashboard und zentrale V0.3-Routen geöffnet
+- Warum-Labor geöffnet
+- Rechenweg-Mission gestartet
+- Kurvendiskussions-Canvas geladen
+- 3D-Vektorraum-Canvas geladen
+- Wochenplan geladen
+- Desktop: keine JavaScript- oder Konsolenfehler
+- Mobile: keine JavaScript- oder Konsolenfehler
+- kein horizontaler Seitenüberlauf auf Desktop oder Mobile
+- mobile Sidebar ist scrollbar
 
-ERGEBNIS
-V0.2 ist kein reines Antwort-Quiz mehr. Die App trainiert Konzeptverständnis, Strategieauswahl, vollständige Rechenwege, Selbst-Erklärung, Transfer, Fehlerreparatur und zeitversetzten Abruf. Weitere Bauphasen können den Aufgabenkorpus, die Modellierung, 3D-Visualisierung und Klausurteilpunkte noch weiter vertiefen.
+STATISCHE PRÜFUNGEN
+- JavaScript-Syntax aller sechs Skriptdateien bestanden
+- ausschließlich relative lokale Dateipfade
+- keine benötigten Unterordner
+- keine sichtbaren Platzhalter wie [object Object] oder undefined gefunden
+- alle V0.3-Dateien in index.html in korrekter Reihenfolge geladen
+
+HINWEISE
+- MathJax wird über ein CDN geladen. Für die normale Nutzung auf GitHub Pages ist das passend; bei vollständig fehlender Internetverbindung kann die hochwertige Formeldarstellung erst nach erneuter Verbindung geladen werden.
+- Die automatische Teilpunkte- und Notenauswertung dient dem Lernen. Sie ist kein amtlicher Erwartungshorizont und ersetzt keine Lehrkraftbewertung.

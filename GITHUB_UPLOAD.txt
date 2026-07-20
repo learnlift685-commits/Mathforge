@@ -1,13 +1,15 @@
-MATHFORGE NRW V0.2 AUF GITHUB PAGES VERÖFFENTLICHEN
+MATHFORGE NRW V0.3 AUF GITHUB PAGES
+====================================
 
 1. ZIP-Datei entpacken.
-2. ALLE enthaltenen Dateien markieren.
-3. Die Dateien direkt in die oberste Ebene deines GitHub-Repositorys hochladen.
-   Nicht den gesamten äußeren Ordner als Unterordner hochladen.
-4. GitHub: Settings → Pages.
-5. Source: Deploy from a branch.
-6. Branch: main; Folder: / (root).
-7. Save.
+2. Alle enthaltenen Dateien direkt in die oberste Ebene deines GitHub-Repositorys hochladen.
+3. In GitHub zu Settings -> Pages wechseln.
+4. Deploy from a branch auswählen.
+5. Branch main und / (root) auswählen.
+6. Speichern und kurz warten.
 
-Es sind kein npm, kein Terminal, kein Build-Befehl und keine Ordnerstruktur nötig.
-Die Startdatei muss im Repository direkt `index.html` heißen.
+WICHTIG
+- Keine Datei umbenennen.
+- Keine der JavaScript-Dateien weglassen.
+- Es ist kein npm install und kein Build-Befehl nötig.
+- Ein vorhandener V0.2-Lernstand wird automatisch übernommen.

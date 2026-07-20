@@ -1,0 +1,44 @@
+MATHFORGE NRW V0.3 — CHANGELOG
+================================
+
+NEU: RECHENWEG-INTELLIGENZ
+- 8 mehrstufige Rechenweg-Missionen
+- getrennte Bewertung von Antwort und Begründung
+- automatisierte Teilpunkte
+- First-Divergence-Fehlerdiagnose
+- Lösung, Kontrolle und mathematische Erklärung pro Schritt
+
+NEU: WARUM-LABOR
+- individuell für alle 24 Masterclasses
+- 72 vertiefende Warum-Fragen
+- 24 mentale Anker
+- 24 Analogien
+- 24 Herleitungs- oder Beweisideen
+- 72 typische Fehler mit Reparaturhinweisen
+- Teach-back-System
+
+NEU: SIMULATIONEN
+- Kurvendiskussions-Simulator mit 7 Phasen
+- f-, f′- und f″-Graph gemeinsam darstellbar
+- drehbarer 3D-Vektorraum
+- schneidende, parallele, identische und windschiefe Geraden
+
+NEU: KLAUSURZENTRUM 3.0
+- Grundlagen-, Analysis-, Geometrie- und Gesamtsimulation
+- Rechenwegfeld pro Aufgabe
+- Ergebnis- und Begründungspunkte
+- detaillierter Erwartungshorizont
+- Zeit- und Domänenanalyse
+- Klausurhistorie
+
+NEU: LERNSTEUERUNG
+- adaptiver 7-Tage-Wochenplan
+- Fehlerreparatur in drei Stufen
+- direkte Rechenweg-Mission aus dem Fehlerlabor
+- 7 zusätzliche Generatorfamilien
+
+TECHNIK
+- neuer lokaler Speicherstand mathforge_nrw_v03
+- automatische Migration aus V0.2
+- weiterhin flache GitHub-Struktur
+- weiterhin kein npm, Backend oder Konto erforderlich

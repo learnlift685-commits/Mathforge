@@ -1,77 +1,126 @@
-# MATHFORGE NRW V0.2 — DEEP LEARNING BUILD
+# MATHFORGE NRW V0.3 — INTELLIGENCE & SIMULATION
 
-MATHFORGE NRW ist eine lokale, direkt auf GitHub Pages lauffähige Mathematik-Lernplattform für die Einführungsphase der gymnasialen Oberstufe in NRW.
+MATHFORGE NRW ist eine lokale, direkt auf GitHub Pages nutzbare Lern-App für Mathematik in der Einführungsphase der gymnasialen Oberstufe in Nordrhein-Westfalen.
 
-## Direkt starten
+V0.3 baut auf dem Deep-Learning-System aus V0.2 auf und erweitert es um Rechenweg-Intelligenz, automatisierte Teilpunkte, vollständige Warum-Erklärungen, Kurvendiskussions-Simulationen, einen drehbaren 3D-Vektorraum und einen adaptiven Wochenplan.
 
-Alle Dateien liegen flach nebeneinander. Es gibt kein npm, keinen Build-Schritt, keine Anmeldung und kein Backend.
+## Direkt auf GitHub hochladen
 
-1. Alle Dateien dieses Ordners in die oberste Ebene eines GitHub-Repositorys hochladen.
-2. In GitHub `Settings → Pages` öffnen.
-3. `Deploy from a branch`, Branch `main`, Ordner `/ (root)` auswählen.
-4. Speichern und die von GitHub angezeigte Pages-Adresse öffnen.
+Alle Dateien dieses Ordners gehören direkt in die oberste Ebene des Repositorys. Es gibt keinen `src`-, `dist`- oder `assets`-Ordner und keinen Build-Schritt.
 
-## V0.2: Vom Antwort-Quiz zum tiefen Lernsystem
+Danach in GitHub:
 
-V0.2 trennt Lernen in acht Phasen:
+1. **Settings** öffnen.
+2. **Pages** auswählen.
+3. **Deploy from a branch** einstellen.
+4. Branch **main** und Ordner **/ (root)** auswählen.
+5. Speichern.
 
-1. Orientieren: Ziele, Voraussetzungen und Vorwissen.
-2. Konzept verstehen: Bedeutung, Darstellungen und Zusammenhänge.
-3. Beispiele zerlegen: Entscheidungen eines vollständigen Lösungswegs nachvollziehen.
-4. Geführt anwenden: mit gestuften Hinweisen selbst rechnen.
-5. Selbst erklären: Warum-Fragen beantworten und Wissen sprachlich ordnen.
-6. Selbstständig lösen: ohne Hilfe und mit gemischten Aufgabentypen.
-7. Transfer leisten: unbekannte Darstellungen und Sachkontexte bearbeiten.
-8. Langfristig sichern: zeitversetzt abrufen und Fehler reparieren.
+## Zentrale Neuerungen in V0.3
 
-## Enthalten
+### Rechenweg-Engine
 
-- 24 große Lernmodule
-- 96 feste, vollständig erklärte Aufgaben
+Acht mehrstufige Missionen prüfen nicht nur das Endergebnis:
+
+- lineare Gleichungen
+- quadratische Gleichungen
+- Ableitungen
+- mittlere Änderungsraten
+- Extrempunkte
+- Wendepunkte
+- vollständige Kurvendiskussion
+- Geradenschnitt im Raum
+
+Jeder Schritt besitzt eine Rubrik für mathematische Antwort und Begründung. Die App kann richtige Teilstrukturen erkennen, Teilpunkte vergeben und den ersten abweichenden Gedanken als Reparaturpunkt markieren.
+
+### Warum-Labor für alle 24 Module
+
+Jede Masterclass enthält jetzt zusätzlich:
+
+- mentalen Anker
+- mehrere ausführliche Warum-Fragen
+- anschauliche Analogie
+- Beweisidee oder Herleitung
+- Fehler-Landkarte
+- Teach-back-Fragen
+
+Damit wird eine Regel nicht nur angewendet, sondern begründet, abgegrenzt und mit anderen Darstellungen verbunden.
+
+### Kurvendiskussions-Simulator
+
+Der Simulator führt über sieben verknüpfte Untersuchungsphasen:
+
+1. Endverhalten
+2. erste Ableitung
+3. kritische Stellen
+4. zweite Ableitung
+5. Wendepunkt
+6. Wendetangente
+7. konsistentes Gesamtbild
+
+Die Graphen von `f`, `f′` und `f″` können einzeln eingeblendet und gemeinsam verglichen werden.
+
+### 3D-Vektorraum
+
+Der Raum kann gedreht, geneigt und gezoomt werden. Er erzeugt Szenen mit:
+
+- sich schneidenden Geraden
+- parallelen Geraden
+- identischen Geraden
+- windschiefen Geraden
+
+Die visuelle Vermutung wird anschließend durch Richtungsvergleich, Punktprobe oder Parameter-LGS abgesichert.
+
+### Klausurzentrum 3.0
+
+Vier Simulationen stehen bereit:
+
+- 60-Minuten-Grundlagencheck
+- 90-Minuten-Analysis-Klausur
+- 90-Minuten-Vektorgeometrie-Klausur
+- 120-Minuten-Gesamtsimulation
+
+Die Auswertung trennt Ergebnis-Punkte und Begründungs-Punkte, zeigt einen Erwartungshorizont und erstellt eine priorisierte Reparaturroute. Die automatisierte Noten- und Teilpunkteauswertung ist ausdrücklich eine Lern-Näherung und ersetzt keine Lehrkraftbewertung.
+
+### Adaptiver Wochenplan
+
+Der Plan kombiniert:
+
+- fälligen Langzeitabruf
+- schwächste Mastery-Werte
+- offene Fehler
+- Masterclass-Blöcke
+- gemischtes Training
+- Exit-Tickets
+
+## Gesamtumfang
+
+- 24 vollständige Masterclasses
+- 72 Theorieblöcke
+- 45 ausführliche Beispiele
+- 96 feste Lernaufgaben
 - 12 Diagnoseaufgaben
+- 34 Generatorfamilien
+- 8 Rechenweg-Missionen
+- 24 vollständige Warum-Labore
+- 4 Klausurformate
+- 4 Arten räumlicher Geradenszenen
+- 36 Formeln mit Bedeutung und Einsatzhinweisen
 - 31 verknüpfte NRW-EF-Kompetenzen
-- 27 prozedurale Aufgabengeneratoren
-- 4 getrennte Mastery-Dimensionen: Verständnis, Verfahren, Transfer, Langzeitabruf
-- Masterclasses mit Lernzielen, Voraussetzungen, Konzeptkern, Algorithmus, Mikrofertigkeiten und Exit-Tickets
-- Infinite Forge für immer neue Aufgabenvarianten
-- fünf Step-Coach-Missionen für Ableitungen, Nullstellen, Änderungsraten, Kurvendiskussionen und Geradenschnitte
-- gestufte Hinweise statt sofortiger Komplettlösung
-- vollständige Lösungswege
-- Selbst-Erklärungen und Reflexionsfragen
-- Sicherheitsbewertung vor der Auswertung
-- mathematische Äquivalenzprüfung bei Termen
-- Zahl-, Term-, Lösungsmenge-, Punkt-, Vektor- und Multiple-Choice-Auswertung
-- Fehlerklassifikation mit Reparaturhinweisen
-- automatisch erzeugte ähnliche Reparaturaufgaben
-- adaptives Wiederholungssystem
-- Eingangsdiagnose mit priorisierter Reparaturroute
-- Smart Practice mit gemischten Themen
-- zwei dynamisch erzeugte Klausurformate mit Zeit, Punkten und Notennäherung
-- Graphen-Labor mit Funktion und Ableitung
-- Formelwerk mit 36 Einträgen, Bedeutungen und Einsatzhinweisen
-- Lernanalyse und Fehler-DNA
-- Dark/Light Mode und iPad-Navigation
-- ausschließlich lokale Speicherung im Browser
-
-## Generatorfamilien
-
-Algebra, Termvereinfachung, quadratische Gleichungen, Geradensteigung, Funktionswerte, Potenzfunktionen, Endverhalten, Nullstellen, Transformationen, Sinusparameter, mittlere Änderungsrate, Differenzenquotient, Ableitungen, Tangenten, Normalen, Monotonie, Extrema, Wendepunkte, Symmetrie, Vektoraddition, Skalarmultiplikation, Vektorlänge, Kollinearität, Mittelpunkte, Punktproben, Geradenschnitte und Lagebeziehungen.
-
-## Dateien
-
-- `index.html` — Einstieg und flache GitHub-Verknüpfung
-- `styles.css` — vollständiges responsives Design
-- `mathforge-data.js` — Lehrplan, Masterclasses, Theorie, Formeln und feste Aufgaben
-- `mathforge-engine.js` — Generatoren, Parser, Äquivalenz-, Antwort- und Fehlerlogik
-- `app.js` — Navigation, Lernzustand, Lernmodi, Klausuren, Graphen und UI
-- `GITHUB_UPLOAD.txt` — kurze Upload-Anleitung
-- `BUILD_REPORT.txt` — Prüfbericht
-- `CHANGELOG_V0.2.txt` — Änderungen gegenüber V0.1
 
 ## Speicherung
 
-Der Lernstand liegt unter `mathforge_nrw_v02` im Local Storage des Browsers. Ein vorhandener V0.1-Lernstand wird beim ersten Öffnen übernommen. Browserdaten zu löschen entfernt auch den lokalen Lernstand.
+Der Lernstand liegt ausschließlich im lokalen Browser-Speicher. Es gibt keine Anmeldung, kein Konto, keine Cloud und kein Backend. V0.2-Lernstände werden beim ersten Start automatisch in V0.3 übernommen.
 
-## Hinweis zur Formeldarstellung
+## Dateien
 
-Mathematische Formeln werden über MathJax dargestellt. Dadurch erscheinen Brüche, Potenzen, Ableitungen, Vektoren, Grenzwerte und Gleichungssysteme als echte mathematische Notation statt als sichtbare HTML-Tags.
+- `index.html` — Einstiegspunkt
+- `styles.css` — vollständiges Design
+- `mathforge-data.js` — Grundcurriculum und Lerninhalte
+- `mathforge-v03-data.js` — Warum-Labore, Rubriken und V0.3-Struktur
+- `mathforge-engine.js` — Basis-Aufgaben- und Mathematik-Engine
+- `mathforge-v03-engine.js` — Rechenweg-, Teilpunkte-, Klausur- und Simulationslogik
+- `app.js` — Benutzeroberfläche und lokaler Lernzustand
+- `BUILD_REPORT.txt` — Qualitäts- und Testbericht
+- `CHANGELOG_V0.3.txt` — Änderungen gegenüber V0.2
+- `GITHUB_UPLOAD.txt` — kurze Upload-Anleitung

@@ -2,9 +2,10 @@
   'use strict';
 
   const DATA = window.MATHFORGE_DATA;
+  const V3 = window.MATHFORGE_V03_DATA;
   const ENGINE = window.MATHFORGE_ENGINE;
-  const STORAGE_KEY = 'mathforge_nrw_v02';
-  const LEGACY_KEY = 'mathforge_nrw_v01';
+  const STORAGE_KEY = 'mathforge_nrw_v03';
+  const LEGACY_KEY = 'mathforge_nrw_v02';
   const DIMENSIONS = [
     ['understanding', 'Verständnis'],
     ['method', 'Verfahren'],
@@ -14,7 +15,7 @@
   const PHASES = DATA.learningArchitecture?.phases || [];
 
   const defaultState = {
-    version: 2,
+    version: 3,
     xp: 0,
     level: 1,
     streak: 1,
@@ -34,6 +35,11 @@
     generatorSession: null,
     coachSession: null,
     examSession: null,
+    examHistory: [],
+    pathwaySession: null,
+    curveSession: null,
+    spaceSession: null,
+    weeklyPlan: null,
     lessonSessions: {},
     theme: 'dark',
     route: 'dashboard',
@@ -55,10 +61,14 @@
     ['learn', '◇', 'Masterclasses'],
     ['generators', '∞', 'Infinite Forge'],
     ['coach', '↳', 'Step Coach'],
+    ['pathway', '≡', 'Rechenweg-Engine'],
     ['diagnostic', '⌁', 'Diagnose'],
     ['practice', '⚡', 'Smart Practice'],
     ['exam', '▣', 'Klausurzentrum'],
     ['graph', '∿', 'Graphen-Labor'],
+    ['curveLab', '⌇', 'Kurven-Simulator'],
+    ['space', '◫', '3D-Vektorraum'],
+    ['planner', '▦', 'Wochenplan'],
     ['formulas', 'ƒ', 'Formelwerk'],
     ['errors', '!', 'Fehlerlabor'],
     ['analytics', '↗', 'Lernanalyse'],
@@ -79,7 +89,7 @@
       const legacy = JSON.parse(localStorage.getItem(LEGACY_KEY) || 'null');
       if (legacy) {
         const migrated = deepMerge(defaultState, legacy);
-        migrated.version = 2;
+        migrated.version = 3;
         return migrated;
       }
     } catch (error) {
@@ -508,15 +518,15 @@
     const accuracy7 = attempts7.length ? 100 * attempts7.filter(item => item.correct).length / attempts7.length : 0;
     const weakestDimension = [...DIMENSIONS].sort((a, b) => dimensionAverage(a[0]) - dimensionAverage(b[0]))[0];
     main.innerHTML = `<div class="page">
-      ${pageHead('MATHFORGE DEEP LEARNING 2.0', 'Dein Mathe-Cockpit', 'Nicht nur Antworten: Verständnis, Rechenweg, Transfer, Langzeitabruf und persönliche Fehlerursachen werden getrennt trainiert.', `
+      ${pageHead('MATHFORGE INTELLIGENCE 3.0', 'Dein Mathe-Cockpit', 'Strategie, Zwischenschritte, Begründung, Ergebnis, Kontrolle und Langzeitabruf werden getrennt trainiert und bewertet.', `
         <button class="btn primary" id="dashboard-start">Masterclass starten</button>
-        <button class="btn" id="dashboard-coach">Step Coach</button>
+        <button class="btn" id="dashboard-coach">Step Coach</button><button class="btn" id="dashboard-pathway">Rechenweg-Engine</button>
       `)}
       <div class="grid grid-4">
         <div class="card stat-card"><div class="label">Gesamt-Mastery</div><div class="value">${Math.round(globalMastery())}%</div><div class="delta">über ${DATA.lessons.length} Module</div></div>
         <div class="card stat-card"><div class="label">7-Tage-Trefferquote</div><div class="value">${Math.round(accuracy7)}%</div><div class="delta">${attempts7.length} Versuche</div></div>
         <div class="card stat-card"><div class="label">Lernserie</div><div class="value">${state.streak}</div><div class="delta">Tage · Level ${state.level}</div></div>
-        <div class="card stat-card"><div class="label">Fällige Abrufe</div><div class="value">${dueCount()}</div><div class="delta">Spaced Retrieval</div></div>
+        <div class="card stat-card"><div class="label">Fällige Abrufe</div><div class="value">${dueCount()}</div><div class="delta">Spaced Retrieval · V0.3</div></div>
       </div>
 
       <div class="section-title"><h2>Heutige Mission</h2><span>Schwäche + Fälligkeit + Langzeitabruf</span></div>
@@ -554,6 +564,7 @@
 
     document.getElementById('dashboard-start').onclick = () => openLesson(rec.id, 'overview');
     document.getElementById('dashboard-coach').onclick = () => route('coach');
+    document.getElementById('dashboard-pathway').onclick = () => route('pathway');
     document.getElementById('hero-masterclass').onclick = () => openLesson(rec.id, 'overview');
     document.getElementById('hero-infinite').onclick = () => startGenerator(generatorForLesson(rec.id));
   }
@@ -621,10 +632,10 @@
 
   function lessonTabs(lesson) {
     const tabs = [
-      ['overview', 'Kompass'], ['concept', 'Verstehen'], ['examples', 'Beispiele'], ['guided', 'Geführt'],
+      ['overview', 'Kompass'], ['concept', 'Verstehen'], ['deep', 'Warum-Labor'], ['examples', 'Beispiele'], ['guided', 'Geführt'],
       ['explain', 'Erklären'], ['independent', 'Selbstständig'], ['transfer', 'Transfer'], ['retain', 'Behalten']
     ];
-    return `<div class="tabs phase-tabs">${tabs.map(([id, label]) => `<button class="tab ${state.lessonTab === id ? 'active' : ''} ${phaseState(lesson.id)[id === 'overview' ? 'orient' : ({concept:'concept',examples:'worked',guided:'guided',explain:'explain',independent:'independent',transfer:'transfer',retain:'retain'}[id])] ? 'done' : ''}" data-lesson-tab="${id}">${label}</button>`).join('')}</div>`;
+    return `<div class="tabs phase-tabs">${tabs.map(([id, label]) => `<button class="tab ${state.lessonTab === id ? 'active' : ''} ${phaseState(lesson.id)[id === 'overview' ? 'orient' : ({concept:'concept',deep:'concept',examples:'worked',guided:'guided',explain:'explain',independent:'independent',transfer:'transfer',retain:'retain'}[id])] ? 'done' : ''}" data-lesson-tab="${id}">${label}</button>`).join('')}</div>`;
   }
 
   function masteryPanelHTML(lesson) {
@@ -673,6 +684,22 @@
       `Wie würdest du die Idee aus „${lesson.sections[index].title}“ an einem eigenen Mini-Beispiel zeigen?`
     ];
     return prompts[index % prompts.length];
+  }
+
+  function renderLessonDeep(lesson) {
+    markPhase(lesson.id, 'concept');
+    const deep = V3.deepDives[lesson.id] || V3.genericDeepDive;
+    const saved = state.reflections[`deep-${lesson.id}`] || [];
+    return `<div class="lesson-main">
+      <div class="concept-banner why-banner"><span>WARUM-LABOR</span><h2>Vom Verfahren zum tragfähigen mentalen Modell</h2><p>Hier wird nicht nur gezeigt, was du tun sollst. Du untersuchst, warum die Regeln gelten, wann sie versagen und wie du sie kontrollierst.</p></div>
+      <div class="card mental-anchor"><div class="eyebrow">MENTALER ANKER</div><h2>${deep.anchor}</h2><p><strong>Bild im Kopf:</strong> ${deep.analogy}</p></div>
+      <div class="why-grid">
+        ${deep.why.map(([question, answer], index) => `<article class="card why-card"><div class="why-number">${String(index + 1).padStart(2,'0')}</div><h3>${question}</h3><p>${answer}</p><button class="btn small" data-why-recall="${index}">Ausblenden & selbst erklären</button><div class="why-recall" id="why-recall-${index}" hidden><textarea placeholder="Erkläre die Antwort ohne den Text zu kopieren …">${esc(saved[index] || '')}</textarea><button class="btn primary small" data-save-why="${index}">Erklärung speichern</button></div></article>`).join('')}
+      </div>
+      <div class="card proof-card"><div class="eyebrow">BEWEISIDEE / HERLEITUNG</div><h3>Woher kommt die Regel?</h3><p>${deep.proofSketch}</p><div class="proof-warning"><strong>Wichtig:</strong> Eine Beweisidee ersetzt nicht das Rechnen. Sie sorgt dafür, dass du Regeln rekonstruieren kannst, statt sie nur auswendig zu kennen.</div></div>
+      <div class="card"><h3>Fehler-Landkarte</h3><div class="mistake-map">${deep.mistakeMap.map(([name, repair]) => `<div><span>${esc(name)}</span><i>→</i><strong>${esc(repair)}</strong></div>`).join('')}</div></div>
+      <div class="card explain-back"><h3>Teach-back: Könntest du es jemandem beibringen?</h3>${deep.explainBack.map((prompt, index) => `<label><span>${index + 1}. ${prompt}</span><textarea data-teachback="${index}" placeholder="Eigene Erklärung …"></textarea></label>`).join('')}<button class="btn primary" id="save-teachback">Teach-back abschließen</button></div>
+    </div>`;
   }
 
   function renderLessonExamples(lesson, session) {
@@ -756,6 +783,7 @@
     const session = getLessonSession(lesson.id);
     let body;
     if (state.lessonTab === 'concept') body = renderLessonConcept(lesson);
+    else if (state.lessonTab === 'deep') body = renderLessonDeep(lesson);
     else if (state.lessonTab === 'examples') body = renderLessonExamples(lesson, session);
     else if (state.lessonTab === 'guided') body = renderLessonGuided(lesson, session);
     else if (state.lessonTab === 'explain') body = renderLessonExplain(lesson, session);
@@ -790,6 +818,29 @@
         el.hidden = !el.hidden;
         button.textContent = el.hidden ? 'Aktive Abruffrage anzeigen' : 'Abruffrage ausblenden';
       });
+    }
+    if (state.lessonTab === 'deep') {
+      main.querySelectorAll('[data-why-recall]').forEach(button => button.onclick = () => {
+        const el = document.getElementById(`why-recall-${button.dataset.whyRecall}`);
+        el.hidden = !el.hidden;
+        button.textContent = el.hidden ? 'Ausblenden & selbst erklären' : 'Erklärung wieder anzeigen';
+      });
+      main.querySelectorAll('[data-save-why]').forEach(button => button.onclick = () => {
+        const index = Number(button.dataset.saveWhy);
+        const text = document.querySelector(`#why-recall-${index} textarea`)?.value.trim();
+        if (!text || text.length < 25) return toast('Erkläre den Zusammenhang noch etwas ausführlicher.');
+        const key = `deep-${lesson.id}`;
+        if (!Array.isArray(state.reflections[key])) state.reflections[key] = [];
+        state.reflections[key][index] = text;
+        state.xp += 8; updateMastery(lesson.id, 'understanding', 2); saveState(); toast('Warum-Erklärung gespeichert · +8 XP');
+      });
+      document.getElementById('save-teachback').onclick = () => {
+        const values = [...main.querySelectorAll('[data-teachback]')].map(el => el.value.trim()).filter(Boolean);
+        if (values.length < 2 || values.join(' ').length < 80) return toast('Beantworte mindestens zwei Teach-back-Fragen ausführlich.');
+        const key = `teachback-${lesson.id}`;
+        state.reflections[key] = values;
+        state.xp += 18; updateMastery(lesson.id, 'understanding', 4); updateMastery(lesson.id, 'transfer', 2); saveState(); toast('Teach-back abgeschlossen · +18 XP');
+      };
     }
     if (state.lessonTab === 'examples') bindExamples(lesson, session);
     if (state.lessonTab === 'guided') bindGuided(lesson, session);
@@ -1127,6 +1178,145 @@
     document.getElementById('practice-errors').onclick = () => { state.practice=null; route('errors'); };
   }
 
+
+  function pathwayTotals(session) {
+    const steps = session?.mission?.steps || [];
+    const max = steps.reduce((sum, step) => sum + Number(step.points || 0), 0);
+    const earned = Object.values(session?.answers || {}).reduce((sum, item) => sum + Number(item.score?.points || 0), 0);
+    return { earned, max, percent: max ? Math.round(100 * earned / max) : 0 };
+  }
+
+  function startPathway(type = 'derivative') {
+    const mission = ENGINE.createPathway(type);
+    mission.steps.forEach(step => {
+      step.lessonId = step.lessonId || mission.lessonId;
+      step.skill = step.skill || getLesson(mission.lessonId)?.competencies?.[0] || 'EF';
+      step.masteryDimension = step.masteryDimension || 'Verfahren';
+    });
+    state.pathwaySession = { active: true, completed: false, mission, index: 0, answers: {}, started: Date.now() };
+    saveState(); route('pathway');
+  }
+
+  function renderPathway() {
+    const session = state.pathwaySession;
+    if (!session?.active && !session?.completed) {
+      main.innerHTML = `<div class="page">
+        ${pageHead('RECHENWEG-INTELLIGENZ', 'Nicht nur das Ergebnis zählt', 'Jede Mission bewertet Strategie, mathematische Zwischenschritte, Regelbegründung, Ergebnis und unabhängige Kontrolle getrennt.')}
+        <div class="card rubric-manifest"><div><div class="eyebrow">NEUE V0.3-RUBRIK</div><h2>Eine falsche Endzahl kann trotzdem richtige Mathematik enthalten</h2><p>Die Engine vergibt Teilpunkte für korrekt erkannte Strukturen und Begründungen. Gleichzeitig zeigt sie den ersten Schritt, an dem dein Lösungsweg mathematisch abweicht.</p></div><div class="rubric-wheel"><span>Strategie</span><span>Rechnung</span><span>Warum</span><span>Kontrolle</span></div></div>
+        <div class="pathway-grid">${V3.pathwayCatalog.map(([id,title,domain,lessonId]) => `<button class="card pathway-choice" data-pathway="${id}"><span>${domain}</span><h2>${title}</h2><p>${getLesson(lessonId)?.summary || 'Mehrstufige Mission mit Teilpunkten und Fehlerdiagnose.'}</p><strong>${id === 'curve' ? '7' : id === 'line' ? '5' : '4–5'} bewertete Schritte →</strong></button>`).join('')}</div>
+      </div>`;
+      main.querySelectorAll('[data-pathway]').forEach(button => button.onclick = () => startPathway(button.dataset.pathway));
+      return;
+    }
+    if (session.completed) return renderPathwaySummary(session);
+    renderPathwayActive(session);
+  }
+
+  function renderPathwayActive(session) {
+    const mission = session.mission;
+    const step = mission.steps[session.index];
+    const answer = session.answers[step.id] || { input:'', selected:'', reasoning:'', confidence:3, hints:0, answered:false, score:null };
+    session.answers[step.id] = answer;
+    const totals = pathwayTotals(session);
+    main.innerHTML = `<div class="page pathway-page">
+      ${pageHead('RECHENWEG-ENGINE', mission.title, mission.context, `<div class="path-score"><strong>${totals.earned}/${totals.max}</strong><span>Punkte</span></div><button class="btn" id="pathway-exit">Missionen</button>`)}
+      <div class="path-progress">${mission.steps.map((item,index)=>`<button class="${index===session.index?'active':''} ${session.answers[item.id]?.answered?'done':''}" data-path-index="${index}"><b>${index+1}</b><span>${item.title.replace(/^\d+\s*·\s*/, '')}</span></button>`).join('')}</div>
+      <div class="path-layout">
+        <div class="card path-task">
+          <div class="lesson-meta">${pill(`Schritt ${session.index+1}/${mission.steps.length}`,'cyan')}${pill(`${step.points} Punkte`)}${pill('Teilpunkte aktiv','green')}</div>
+          <h2>${step.title}</h2><p class="path-prompt">${step.prompt}</p>
+          ${taskInputHTML(step, answer, 'path')}
+          ${step.type !== 'explain' ? `<label class="reasoning-field"><span>Begründe deinen Schritt</span><textarea id="path-reasoning" ${answer.answered?'disabled':''} placeholder="Welche Regel nutzt du, warum ist sie hier zulässig und wie kontrollierst du sie?">${esc(answer.reasoning || '')}</textarea></label>` : ''}
+          ${confidenceHTML(answer,'path')}
+          <div class="question-actions"><button class="btn" id="path-hint" ${answer.answered||answer.hints>=(step.hints||[]).length?'disabled':''}>Gestuften Hinweis</button><button class="btn primary" id="path-check" ${answer.answered?'disabled':''}>Schritt bewerten</button></div>
+          ${answer.hints ? `<div class="hint-stack">${(step.hints||[]).slice(0,answer.hints).map((hint,i)=>`<div class="hint"><strong>Hinweis ${i+1}</strong>${hint}</div>`).join('')}</div>`:''}
+          ${answer.answered ? pathwayStepFeedback(step,answer) : ''}
+          ${answer.answered ? `<div class="actions end-actions"><button class="btn primary" id="path-next">${session.index+1<mission.steps.length?'Nächster Schritt':'Mission auswerten'}</button></div>`:''}
+        </div>
+        <aside class="card rubric-side sticky"><h3>Bewertungsrubrik</h3><div class="rubric-line"><span>Mathematische Antwort</span><strong>${Math.max(0,step.points-(step.reasoningPoints||1))} P</strong></div><div class="rubric-line"><span>Begründung</span><strong>${step.type==='explain'?step.points:(step.reasoningPoints||1)} P</strong></div><hr><p>Eine Begründung nennt nicht nur eine Formel, sondern verbindet <strong>Voraussetzung → Regel → Wirkung → Kontrolle</strong>.</p><div class="first-error-rule"><strong>First Divergence</strong><span>Die App sucht den ersten mathematisch abweichenden Schritt, statt nur „falsch“ anzuzeigen.</span></div></aside>
+      </div>
+    </div>`;
+    main.querySelectorAll('[data-path-option]').forEach(button=>button.onclick=()=>{answer.selected=button.dataset.pathOption;saveState();render();});
+    main.querySelectorAll('[data-path-confidence]').forEach(button=>button.onclick=()=>{answer.confidence=Number(button.dataset.pathConfidence);saveState();render();});
+    const input=document.getElementById('path-input'); if(input) input.oninput=e=>answer.input=e.target.value;
+    const reasoning=document.getElementById('path-reasoning'); if(reasoning) reasoning.oninput=e=>answer.reasoning=e.target.value;
+    document.getElementById('path-hint').onclick=()=>{answer.hints=Math.min((step.hints||[]).length,answer.hints+1);saveState();render();};
+    document.getElementById('path-check').onclick=()=>{
+      if(input)answer.input=input.value;if(reasoning)answer.reasoning=reasoning.value;
+      const value=step.type==='choice'?answer.selected:answer.input;
+      if(!String(value||'').trim())return toast('Trage zuerst deine Antwort ein.');
+      answer.score=ENGINE.scorePathwayStep(step,value,answer.reasoning);answer.answered=true;
+      recordAttempt(step,value,{correct:answer.score.correct},'pathway',answer.confidence||3);
+      state.xp+=Math.round(answer.score.points*4);saveState();render();
+    };
+    document.getElementById('path-next')?.addEventListener('click',()=>{if(session.index+1<mission.steps.length){session.index++;saveState();render();}else{session.active=false;session.completed=true;session.finished=Date.now();saveState();render();}});
+    document.getElementById('pathway-exit').onclick=()=>{state.pathwaySession=null;saveState();render();};
+    main.querySelectorAll('[data-path-index]').forEach(button=>button.onclick=()=>{const idx=Number(button.dataset.pathIndex);if(idx<=session.index||session.answers[mission.steps[idx-1]?.id]?.answered){session.index=idx;saveState();render();}});
+  }
+
+  function pathwayStepFeedback(step,answer){
+    const score=answer.score||{};const diagnosis=score.diagnosis;
+    return `<div class="path-feedback ${score.correct?'correct':score.points?'partial':'wrong'}"><div class="path-feedback-head"><strong>${score.points}/${score.maxPoints} Punkte</strong><span>${score.correct?'vollständig':score.points?'teilweise tragfähig':'noch nicht tragfähig'}</span></div><div class="rubric-breakdown"><span>Antwort: ${score.answerPoints||0} P</span><span>Begründung: ${score.reasoningPoints||0} P</span></div><p>${esc(score.feedback||'')}</p>${diagnosis?`<div class="diagnosis-box"><strong>${esc(diagnosis.title)}</strong><p>${esc(diagnosis.repair)}</p></div>`:''}</div>${solutionHTML(step)}`;
+  }
+
+  function renderPathwaySummary(session){
+    const totals=pathwayTotals(session);const mission=session.mission;
+    main.innerHTML=`<div class="page">${pageHead('MISSION ABGESCHLOSSEN',mission.title,'Die Auswertung trennt Ergebniswissen von erklärbarem Rechenweg.')}
+      <div class="card result-hero"><div class="result-orb">${totals.percent}%</div><div><div class="eyebrow">RUBRIK-ERGEBNIS</div><h1>${totals.earned}/${totals.max} Punkte</h1><p>${totals.percent>=85?'Der Lösungsweg ist stabil und erklärbar.':totals.percent>=60?'Das Verfahren sitzt teilweise; repariere die schwächsten Schritte.':'Arbeite die Mission erneut mit den Warum-Erklärungen durch.'}</p></div></div>
+      <div class="card"><h3>Schrittanalyse</h3>${mission.steps.map((step,index)=>{const a=session.answers[step.id];return`<div class="exam-result-row ${a?.score?.correct?'correct':a?.score?.points?'partial':'wrong'}"><b>${index+1}</b><span>${step.title}</span><strong>${a?.score?.points||0}/${step.points}</strong></div>`}).join('')}</div>
+      <div class="actions center"><button class="btn primary" id="path-repeat">Neue Variante</button><button class="btn" id="path-repair">Fehlerlabor</button><button class="btn" id="path-home">Alle Missionen</button></div></div>`;
+    document.getElementById('path-repeat').onclick=()=>startPathway(mission.type);
+    document.getElementById('path-repair').onclick=()=>route('errors');
+    document.getElementById('path-home').onclick=()=>{state.pathwaySession=null;saveState();render();};
+  }
+
+  function renderCurveLab(){
+    if(!state.curveSession){state.curveSession={mission:ENGINE.createCurveInvestigation(),index:0,answers:{},show:{f:true,fp:true,fpp:false,points:false}};saveState();}
+    const session=state.curveSession,mission=session.mission,step=mission.steps[session.index];
+    const answer=session.answers[step.id]||{input:'',selected:'',reasoning:'',confidence:3,hints:0,answered:false,score:null};session.answers[step.id]=answer;
+    const totals=pathwayTotals({mission,answers:session.answers});
+    main.innerHTML=`<div class="page curve-lab-page">${pageHead('KURVENDISKUSSIONS-SIMULATOR','Ein Graph – sieben miteinander verbundene Untersuchungen',`Gegeben: \\(f(x)=${mission.functionText}\\). Jede Rechnung verändert dein sichtbares Gesamtmodell.`,`<button class="btn" id="new-curve">Neue Funktion</button>`)}
+      <div class="curve-simulator-layout"><div class="card curve-stage"><canvas id="curve-lab-canvas" width="1100" height="680"></canvas><div class="curve-toggles"><button data-curve-layer="f" class="${session.show.f?'active':''}">f</button><button data-curve-layer="fp" class="${session.show.fp?'active':''}">f′</button><button data-curve-layer="fpp" class="${session.show.fpp?'active':''}">f″</button><button data-curve-layer="points" class="${session.show.points?'active':''}">Punkte</button></div><div class="curve-insights"><span>f beantwortet: Lage</span><span>f′ beantwortet: Steigung</span><span>f″ beantwortet: Krümmung</span></div></div>
+      <div class="card curve-work"><div class="step-counter"><span>Phase ${session.index+1}/${mission.steps.length}</span><strong>${totals.earned}/${totals.max} P</strong></div><h2>${step.title}</h2><p>${step.prompt}</p>${taskInputHTML(step,answer,'curve')} ${step.type!=='explain'?`<textarea id="curve-reasoning" class="reasoning-area" placeholder="Warum passt dieser Schritt?">${esc(answer.reasoning||'')}</textarea>`:''}<div class="actions"><button class="btn" id="curve-hint" ${answer.answered?'disabled':''}>Hinweis</button><button class="btn primary" id="curve-check" ${answer.answered?'disabled':''}>Prüfen</button></div>${answer.hints?`<div class="hint-stack">${(step.hints||[]).slice(0,answer.hints).map((h,i)=>`<div class="hint"><strong>Hinweis ${i+1}</strong>${h}</div>`).join('')}</div>`:''}${answer.answered?pathwayStepFeedback(step,answer):''}${answer.answered?`<button class="btn primary full" id="curve-next">${session.index+1<mission.steps.length?'Nächste Untersuchungsphase':'Gesamtbild anzeigen'}</button>`:''}</div></div>
+      <div class="curve-map">${mission.steps.map((item,index)=>`<button class="${index===session.index?'active':''} ${session.answers[item.id]?.answered?'done':''}" data-curve-step="${index}"><b>${index+1}</b><span>${item.title.replace(/^\d+\s*·\s*/,'')}</span></button>`).join('')}</div></div>`;
+    main.querySelectorAll('[data-curve-option]').forEach(button=>button.onclick=()=>{answer.selected=button.dataset.curveOption;saveState();render();});
+    const input=document.getElementById('curve-input');if(input)input.oninput=e=>answer.input=e.target.value;const reason=document.getElementById('curve-reasoning');if(reason)reason.oninput=e=>answer.reasoning=e.target.value;
+    document.getElementById('curve-hint').onclick=()=>{answer.hints=Math.min((step.hints||[]).length,answer.hints+1);saveState();render();};
+    document.getElementById('curve-check').onclick=()=>{if(input)answer.input=input.value;if(reason)answer.reasoning=reason.value;const value=step.type==='choice'?answer.selected:answer.input;if(!String(value||'').trim())return toast('Antwort fehlt.');answer.score=ENGINE.scorePathwayStep(step,value,answer.reasoning);answer.answered=true;recordAttempt({...step,lessonId:'A13',skill:'A19'},value,{correct:answer.score.correct},'curve-lab',3);saveState();render();};
+    document.getElementById('curve-next')?.addEventListener('click',()=>{if(session.index+1<mission.steps.length){session.index++;}else{session.show={f:true,fp:true,fpp:true,points:true};state.xp+=35;updateMastery('A13','transfer',6);toast('Kurvendiskussion abgeschlossen · +35 XP');}saveState();render();});
+    document.getElementById('new-curve').onclick=()=>{state.curveSession=null;saveState();render();};
+    main.querySelectorAll('[data-curve-layer]').forEach(button=>button.onclick=()=>{session.show[button.dataset.curveLayer]=!session.show[button.dataset.curveLayer];saveState();render();});
+    main.querySelectorAll('[data-curve-step]').forEach(button=>button.onclick=()=>{const idx=Number(button.dataset.curveStep);if(idx<=session.index||session.answers[mission.steps[idx-1]?.id]?.answered){session.index=idx;saveState();render();}});
+    drawCurveLab(session);
+  }
+
+  function drawCurveLab(session){
+    const canvas=document.getElementById('curve-lab-canvas');if(!canvas)return;const ctx=canvas.getContext('2d'),m=session.mission,c=m.coefficients;const W=canvas.width,H=canvas.height,xmin=-6,xmax=6,ymin=-18,ymax=18;const X=x=>(x-xmin)/(xmax-xmin)*W,Y=y=>H-(y-ymin)/(ymax-ymin)*H;
+    ctx.clearRect(0,0,W,H);ctx.fillStyle=document.documentElement.classList.contains('light')?'#f8fbff':'#071321';ctx.fillRect(0,0,W,H);ctx.strokeStyle='rgba(130,165,205,.14)';ctx.lineWidth=1;for(let i=-18;i<=18;i++){ctx.beginPath();ctx.moveTo(0,Y(i));ctx.lineTo(W,Y(i));ctx.stroke();}for(let i=-6;i<=6;i++){ctx.beginPath();ctx.moveTo(X(i),0);ctx.lineTo(X(i),H);ctx.stroke();}ctx.strokeStyle='rgba(230,244,255,.55)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(X(0),0);ctx.lineTo(X(0),H);ctx.moveTo(0,Y(0));ctx.lineTo(W,Y(0));ctx.stroke();
+    const f=x=>c.a*x**3+c.b*x+c.d,fp=x=>3*c.a*x*x+c.b,fpp=x=>6*c.a*x;
+    if(session.show.f)plot(ctx,f,'#46d7ff',X,Y,xmin,xmax);if(session.show.fp)plot(ctx,fp,'#ffb45e',X,Y,xmin,xmax);if(session.show.fpp)plot(ctx,fpp,'#8bffb2',X,Y,xmin,xmax);
+    if(session.show.points){ctx.fillStyle='#ffffff';[...m.extremaX.map((x,i)=>[x,m.extremaY[i]]),m.inflection].forEach(([x,y])=>{ctx.beginPath();ctx.arc(X(x),Y(y),7,0,Math.PI*2);ctx.fill();});}
+  }
+
+  function renderSpaceLab(){
+    if(!state.spaceSession)state.spaceSession={scene:ENGINE.createSpaceScene('random'),yaw:-35,pitch:24,zoom:38,selected:'',pointInput:'',checked:false,result:null};
+    const s=state.spaceSession,scene=s.scene;const choices=['schneidend','parallel','identisch','windschief'];
+    main.innerHTML=`<div class="page">${pageHead('3D-VEKTORRAUM','Geraden wirklich räumlich sehen','Drehe das Koordinatensystem, vergleiche Richtungen und entscheide erst danach algebraisch.',`<button class="btn" id="new-space">Neue Szene</button>`)}
+      <div class="space-layout"><div class="card space-canvas-wrap"><canvas id="space-canvas" width="1000" height="720"></canvas><div class="space-controls"><label>Drehung <input id="space-yaw" type="range" min="-180" max="180" value="${s.yaw}"></label><label>Neigung <input id="space-pitch" type="range" min="-75" max="75" value="${s.pitch}"></label><label>Zoom <input id="space-zoom" type="range" min="22" max="60" value="${s.zoom}"></label></div><div class="space-legend"><span><i class="gline"></i>g</span><span><i class="hline"></i>h</span></div></div>
+      <div class="card space-task"><div class="eyebrow">RAUMSZENE</div><h2>Lagebeziehung analysieren</h2><div class="space-equations"><div>\\(g:\\vec x=${vectorHTML(scene.g.a)}+r${vectorHTML(scene.g.u)}\\)</div><div>\\(h:\\vec x=${vectorHTML(scene.h.a)}+s${vectorHTML(scene.h.u)}\\)</div></div><p>Arbeite in dieser Reihenfolge: Richtungsvektoren vergleichen → gegebenenfalls Punktprobe oder Parameter-LGS → dritte Koordinate kontrollieren.</p><div class="options compact-options">${choices.map((item,index)=>{const letter=String.fromCharCode(65+index);return`<button class="option ${s.selected===item?'selected':''}" data-space-choice="${item}" ${s.checked?'disabled':''}><strong>${letter}.</strong><span>${item}</span></button>`}).join('')}</div>${scene.intersection?`<label><span>Möglicher Schnittpunkt</span><input class="answer-input" id="space-point" value="${esc(s.pointInput)}" placeholder="(x|y|z)" ${s.checked?'disabled':''}></label>`:''}<button class="btn primary full" id="space-check" ${s.checked?'disabled':''}>Räumliche Analyse prüfen</button>${s.checked?spaceFeedback(s):''}</div></div></div>`;
+    main.querySelectorAll('[data-space-choice]').forEach(button=>button.onclick=()=>{s.selected=button.dataset.spaceChoice;saveState();render();});
+    ['yaw','pitch','zoom'].forEach(key=>document.getElementById(`space-${key}`).oninput=e=>{s[key]=Number(e.target.value);saveState();drawSpace(s);});
+    document.getElementById('space-check').onclick=()=>{const point=document.getElementById('space-point');if(point)s.pointInput=point.value;s.checked=true;const classCorrect=s.selected===scene.classification;let pointCorrect=true;if(scene.intersection)pointCorrect=ENGINE.checkAnswer({type:'text',answerKind:'point',answer:scene.intersection},s.pointInput).correct;s.result={classCorrect,pointCorrect,correct:classCorrect&&pointCorrect};if(s.result.correct){state.xp+=28;updateMastery('G5','understanding',4);updateMastery('G5','transfer',4);}else{state.errors.unshift({id:Date.now()+Math.random(),lessonId:'G5',taskId:scene.id,prompt:'3D-Lagebeziehung',user:`${s.selected} ${s.pointInput}`,answer:scene.classification,explanation:scene.explanation,solutionSteps:scene.reasoning,diagnosis:{type:'Koordinaten',title:'Räumliche Lage falsch eingeordnet',repair:'Vergleiche zuerst die Richtungsvektoren und prüfe danach alle drei Koordinaten.'},created:Date.now(),resolved:false});}saveState();render();};
+    document.getElementById('new-space').onclick=()=>{state.spaceSession=null;saveState();render();};drawSpace(s);
+  }
+
+  function vectorHTML(v){return `\\begin{pmatrix}${v.join('\\\\')}\\end{pmatrix}`;}
+  function spaceFeedback(s){const scene=s.scene;return`<div class="feedback ${s.result.correct?'correct':'wrong'}"><strong>${s.result.correct?'✓ Vollständige Raumanalyse korrekt':'✕ Analyse noch nicht vollständig'}</strong><p>${scene.explanation}</p></div><div class="solution-panel"><div class="solution-title">Entscheidungsweg</div><ol class="solution-steps">${scene.reasoning.map(x=>`<li>${x}</li>`).join('')}</ol></div>`;}
+  function drawSpace(s){const canvas=document.getElementById('space-canvas');if(!canvas)return;const ctx=canvas.getContext('2d'),W=canvas.width,H=canvas.height;ctx.clearRect(0,0,W,H);ctx.fillStyle=document.documentElement.classList.contains('light')?'#f8fbff':'#071321';ctx.fillRect(0,0,W,H);const yaw=s.yaw*Math.PI/180,pitch=s.pitch*Math.PI/180,scale=s.zoom;const project=p=>{const x1=p[0]*Math.cos(yaw)-p[2]*Math.sin(yaw),z1=p[0]*Math.sin(yaw)+p[2]*Math.cos(yaw),y1=p[1]*Math.cos(pitch)-z1*Math.sin(pitch);return[W/2+x1*scale,H/2-y1*scale]};const line=(a,u,color)=>{ctx.strokeStyle=color;ctx.lineWidth=5;ctx.beginPath();for(let i=0;i<=160;i++){const t=-8+16*i/160,p=a.map((x,k)=>x+t*u[k]),q=project(p);i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);}ctx.stroke();};const axes=[[[0,0,0],[1,0,0],'#ff6b7a'],[[0,0,0],[0,1,0],'#7dff9d'],[[0,0,0],[0,0,1],'#5ebdff']];ctx.lineWidth=2;axes.forEach(([a,u,color])=>{ctx.strokeStyle=color;ctx.beginPath();const p1=project(u.map(x=>-7*x)),p2=project(u.map(x=>7*x));ctx.moveTo(...p1);ctx.lineTo(...p2);ctx.stroke();});line(s.scene.g.a,s.scene.g.u,'#46d7ff');line(s.scene.h.a,s.scene.h.u,'#ffb45e');if(s.scene.intersection){const q=project(s.scene.intersection);ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(q[0],q[1],8,0,Math.PI*2);ctx.fill();}}
+
+  function buildWeeklyPlan(){const stats=DATA.lessons.map(l=>({id:l.id,title:l.title,mastery:lessonMastery(l.id)}));const due=DATA.lessons.filter(l=>(state.review[l.id]?.due||Infinity)<=Date.now()).map(l=>l.id);const errors=state.errors.filter(e=>!e.resolved).map(e=>e.lessonId);state.weeklyPlan=ENGINE.createWeeklyPlan(stats,due,errors);saveState();}
+  function renderPlanner(){if(!state.weeklyPlan)buildWeeklyPlan();const plan=state.weeklyPlan;const all=plan.days.flatMap(d=>d.blocks),done=all.filter(b=>b.completed).length,minutes=all.filter(b=>!b.completed).reduce((s,b)=>s+b.minutes,0);main.innerHTML=`<div class="page">${pageHead('ADAPTIVER WOCHENPLAN','Sieben Tage, die Erinnern statt Vergessen organisieren','Der Plan kombiniert fälligen Abruf, schwächste Mastery, offene Fehler und gemischten Transfer.',`<button class="btn" id="regenerate-plan">Neu berechnen</button>`)}<div class="grid grid-3"><div class="card stat-card"><div class="label">Fortschritt</div><div class="value">${done}/${all.length}</div></div><div class="card stat-card"><div class="label">Offene Lernzeit</div><div class="value">${minutes}</div><div class="delta">Minuten</div></div><div class="card stat-card"><div class="label">Prinzip</div><div class="value small-value">Abruf</div><div class="delta">vor erneutem Lesen</div></div></div><div class="plan-principles">${plan.principles.map(p=>`<span>${p}</span>`).join('')}</div><div class="week-grid">${plan.days.map(day=>`<section class="card day-card"><div class="day-head"><div><span>TAG ${day.day+1}</span><h2>${day.label}</h2></div><strong>${day.blocks.reduce((s,b)=>s+b.minutes,0)} Min.</strong></div>${day.blocks.map(block=>`<div class="plan-block ${block.completed?'done':''}"><button data-plan-toggle="${block.id}">${block.completed?'✓':'○'}</button><div><span>${block.kind} · ${block.minutes} Min.</span><strong>${esc(block.title)}</strong></div><button class="plan-start" data-plan-start="${block.id}">Start</button></div>`).join('')}</section>`).join('')}</div></div>`;document.getElementById('regenerate-plan').onclick=()=>{buildWeeklyPlan();render();};main.querySelectorAll('[data-plan-toggle]').forEach(button=>button.onclick=()=>{const block=all.find(b=>b.id===button.dataset.planToggle);block.completed=!block.completed;if(block.completed){state.xp+=5;state.totalMinutes+=block.minutes;}saveState();render();});main.querySelectorAll('[data-plan-start]').forEach(button=>button.onclick=()=>{const block=all.find(b=>b.id===button.dataset.planStart);if(block.kind==='Mix')return route('practice');if(block.kind==='Kontrolle'&&state.errors.some(e=>!e.resolved&&e.lessonId===block.lessonId))return route('errors');openLesson(block.lessonId||todayRecommendation().id,block.kind==='Abruf'?'retain':'overview');});}
+
   function renderDiagnostic() {
     if (!state.diagnostic?.active) {
       main.innerHTML = `<div class="page">
@@ -1175,46 +1365,56 @@
   function renderExam() {
     const session = state.examSession;
     if (!session?.active && !session?.submitted) {
+      const cards = [
+        ['basis','60 Minuten','Grundlagen-Check','Algebra, Funktionen, Steigung, erste Analysis und Vektorbasics.','10 Aufgaben'],
+        ['analysis','90 Minuten','Analysis-Klausur EF','Funktionen, Änderungsraten, Ableitungen, Tangenten, Extrema, Wendepunkte und Begründungen.','11 Aufgaben'],
+        ['geometry','90 Minuten','Vektorgeometrie-Klausur','Vektoroperationen, Figurennachweise, Geraden, Punktproben, Lagebeziehungen und LGS.','9 Aufgaben'],
+        ['full','120 Minuten','Große EF-NRW-Simulation','Gemischte Analysis und Vektorgeometrie mit Rechenweg-Rubrik und automatisierten Teilpunkten.','13 Aufgaben']
+      ];
       main.innerHTML = `<div class="page">
-        ${pageHead('KLAUSURZENTRUM', 'NRW-EF unter echten Bedingungen', 'Zeit, Punkte, Aufgabennavigation und anschließende Fehleranalyse. Die Aufgaben werden bei jedem Start neu erzeugt.')}
-        <div class="grid grid-2 exam-choice-grid">
-          <button class="card exam-choice" data-exam="basis"><span>60 Minuten</span><h2>Grundlagen-Check</h2><p>Algebra, Funktionen, Steigung, erste Analysis und Vektorbasics.</p><strong>10 Aufgaben</strong></button>
-          <button class="card exam-choice" data-exam="standard"><span>90 Minuten</span><h2>EF NRW Probeklausur</h2><p>Nullstellen, Transformation, Änderungsrate, Ableitung, Tangente, Extrema, Wendepunkt und Geraden.</p><strong>12 Aufgaben</strong></button>
-        </div>
-        ${state.examSession?.submitted ? examResultHTML(state.examSession) : ''}
+        ${pageHead('KLAUSURZENTRUM 3.0', 'NRW-EF mit Teilpunkten und Erwartungshorizont', 'Neben dem Ergebnis werden Rechenweg und Begründung bewertet. Die Teilpunkte sind eine transparente automatisierte Näherung – kein Ersatz für die endgültige Lehrkraftbewertung.')}
+        <div class="exam-blueprint-note"><strong>V0.3 neu:</strong><span>Ergebnis-Punkte + Begründungs-Punkte + Teilkomponenten + thematische Reparaturroute</span></div>
+        <div class="grid grid-2 exam-choice-grid">${cards.map(([id,time,title,desc,count])=>`<button class="card exam-choice" data-exam="${id}"><span>${time}</span><h2>${title}</h2><p>${desc}</p><strong>${count}</strong></button>`).join('')}</div>
+        ${state.examHistory?.length ? `<div class="card"><h3>Letzte Simulationen</h3>${state.examHistory.slice(0,5).map(item=>`<div class="history-row"><span>${formatDate(item.created,true)}</span><strong>${item.title}</strong><b>${item.percent}% · ${item.grade}</b></div>`).join('')}</div>`:''}
       </div>`;
       main.querySelectorAll('[data-exam]').forEach(button=>button.onclick=()=>startExam(button.dataset.exam));
       return;
     }
     if (session.submitted) {
-      main.innerHTML=`<div class="page">${pageHead('KLAUSURAUSWERTUNG',session.exam.title,'Punkte, ungefähre Note und thematische Reparaturroute.')}${examResultHTML(session)}</div>`;
+      main.innerHTML=`<div class="page">${pageHead('KLAUSURAUSWERTUNG',session.exam.title,'Teilpunkte, Erwartungshorizont, Zeitnutzung und priorisierte Reparaturroute.')}${examResultHTML(session)}</div>`;
       bindExamResult(session); return;
     }
     renderExamActive(session);
   }
 
   function startExam(level) {
-    const exam = ENGINE.createExam(level);
+    const exam = ENGINE.createExamV3 ? ENGINE.createExamV3(level) : ENGINE.createExam(level);
     state.examSession = {active:true,submitted:false,exam,index:0,answers:{},started:Date.now(),finished:null};
     saveState(); route('exam');
   }
 
   function renderExamActive(session) {
     const exam=session.exam, task=exam.tasks[session.index];
-    const answer=session.answers[task.id]||{input:'',selected:'',confidence:3,hints:0,answered:false,result:null};
+    const answer=session.answers[task.id]||{input:'',selected:'',work:'',confidence:3,hints:0,answered:false,result:null,score:null};
     session.answers[task.id]=answer;
     const elapsed=(Date.now()-session.started)/1000;
     const remaining=exam.minutes*60-elapsed;
-    main.innerHTML=`<div class="page exam-page">${pageHead('KLAUSURMODUS',exam.title,'Im Klausurmodus werden keine Hinweise oder Lösungen angezeigt.',`<div class="exam-timer" id="exam-timer">${formatDuration(remaining)}</div><button class="btn danger" id="submit-exam">Abgeben</button>`)}
+    main.innerHTML=`<div class="page exam-page">${pageHead('KLAUSURMODUS',exam.title,'Keine Hinweise und keine Lösungen. Zeige deinen Rechenweg, damit Teilpunkte bewertet werden können.',`<div class="exam-timer" id="exam-timer">${formatDuration(remaining)}</div><button class="btn danger" id="submit-exam">Abgeben</button>`)}
+      <div class="exam-progress-line">${progress(100*(session.index+1)/exam.tasks.length)}<span>Aufgabe ${session.index+1}/${exam.tasks.length}</span></div>
       <div class="exam-nav">${exam.tasks.map((t,i)=>`<button class="${i===session.index?'active':''} ${session.answers[t.id]?.input||session.answers[t.id]?.selected?'filled':''}" data-exam-index="${i}">${i+1}</button>`).join('')}</div>
-      <div class="card exam-task"><div class="lesson-meta">${pill(`Aufgabe ${task.examNumber}`,'cyan')}${pill(`${task.points} Punkte`)}${pill(`NRW ${task.skill}`,'green')}</div><h2>${task.prompt}</h2>${taskInputHTML(task,answer,'examanswer')}<div class="exam-actions"><button class="btn" id="exam-prev" ${session.index===0?'disabled':''}>← Zurück</button><button class="btn primary" id="exam-next">${session.index+1<exam.tasks.length?'Weiter →':'Zur Abgabe'}</button></div></div>
+      <div class="card exam-task"><div class="lesson-meta">${pill(`Aufgabe ${task.examNumber}`,'cyan')}${pill(`${task.points} Punkte`)}${pill(`NRW ${task.skill}`,'green')}</div><h2>${task.prompt}</h2>${taskInputHTML(task,answer,'examanswer')}
+      ${task.type!=='choice'?`<label class="exam-work"><span>Rechenweg / Begründung <b>${task.reasoningPoints||1} Punkt</b></span><textarea id="exam-work" placeholder="Notiere Formelwahl, Zwischenschritte, Regeln und Kontrolle …">${esc(answer.work||'')}</textarea></label>`:''}
+      <div class="rubric-preview">${(task.rubric||[]).map(item=>`<span>${item.label}: <strong>${item.points} P</strong></span>`).join('')}</div>
+      <div class="exam-actions"><button class="btn" id="exam-prev" ${session.index===0?'disabled':''}>← Zurück</button><button class="btn primary" id="exam-next">${session.index+1<exam.tasks.length?'Speichern & weiter →':'Zur Abgabe'}</button></div></div>
     </div>`;
     main.querySelectorAll('[data-examanswer-option]').forEach(button=>button.onclick=()=>{answer.selected=button.dataset.examanswerOption;saveState();render();});
     const input=document.getElementById('examanswer-input');if(input)input.oninput=e=>{answer.input=e.target.value;saveState();};
-    main.querySelectorAll('[data-exam-index]').forEach(button=>button.onclick=()=>{if(input)answer.input=input.value;session.index=Number(button.dataset.examIndex);saveState();render();});
-    document.getElementById('exam-prev').onclick=()=>{if(input)answer.input=input.value;session.index--;saveState();render();};
-    document.getElementById('exam-next').onclick=()=>{if(input)answer.input=input.value;if(session.index+1<exam.tasks.length){session.index++;saveState();render();}else confirmSubmitExam(session);};
-    document.getElementById('submit-exam').onclick=()=>confirmSubmitExam(session);
+    const work=document.getElementById('exam-work');if(work)work.oninput=e=>{answer.work=e.target.value;saveState();};
+    const persist=()=>{if(input)answer.input=input.value;if(work)answer.work=work.value;saveState();};
+    main.querySelectorAll('[data-exam-index]').forEach(button=>button.onclick=()=>{persist();session.index=Number(button.dataset.examIndex);saveState();render();});
+    document.getElementById('exam-prev').onclick=()=>{persist();session.index--;saveState();render();};
+    document.getElementById('exam-next').onclick=()=>{persist();if(session.index+1<exam.tasks.length){session.index++;saveState();render();}else confirmSubmitExam(session);};
+    document.getElementById('submit-exam').onclick=()=>{persist();confirmSubmitExam(session);};
     clearInterval(timerHandle);timerHandle=setInterval(()=>{const el=document.getElementById('exam-timer');if(!el)return;const rem=exam.minutes*60-(Date.now()-session.started)/1000;el.textContent=formatDuration(rem);if(rem<=0){clearInterval(timerHandle);submitExam(session);}},1000);
   }
 
@@ -1226,28 +1426,68 @@
 
   function submitExam(session){
     clearInterval(timerHandle);let points=0;
-    session.exam.tasks.forEach(task=>{const a=session.answers[task.id]||{};const value=task.type==='choice'?a.selected:a.input;const result=ENGINE.checkAnswer(task,value);a.result=result;a.answered=true;if(result.correct)points+=task.points;recordAttempt(task,value,result,'exam',3);});
-    session.points=points;session.finished=Date.now();session.active=false;session.submitted=true;saveState();render();
+    session.exam.tasks.forEach(task=>{
+      const a=session.answers[task.id]||{};const value=task.type==='choice'?a.selected:a.input;
+      const score=ENGINE.scoreExamTask ? ENGINE.scoreExamTask(task,value,a.work||'') : {...ENGINE.checkAnswer(task,value),points:ENGINE.checkAnswer(task,value).correct?task.points:0,maxPoints:task.points};
+      a.score=score;a.result={correct:score.correct};a.answered=true;points+=score.points;
+      recordAttempt(task,value,{correct:score.correct},'exam-v3',3);
+    });
+    session.points=Math.round(points*2)/2;session.finished=Date.now();session.active=false;session.submitted=true;
+    const percent=Math.round(100*session.points/session.exam.totalPoints),grade=gradeForPercent(percent);
+    state.examHistory.unshift({id:session.exam.id,title:session.exam.title,points:session.points,total:session.exam.totalPoints,percent,grade,created:session.finished,duration:session.finished-session.started});
+    state.examHistory=state.examHistory.slice(0,20);saveState();render();
   }
 
   function gradeForPercent(p){if(p>=95)return'1+';if(p>=90)return'1';if(p>=85)return'1−';if(p>=80)return'2+';if(p>=75)return'2';if(p>=70)return'2−';if(p>=65)return'3+';if(p>=60)return'3';if(p>=55)return'3−';if(p>=50)return'4+';if(p>=45)return'4';if(p>=39)return'4−';if(p>=30)return'5';return'6';}
 
   function examResultHTML(session){
-    const exam=session.exam,p=Math.round(100*(session.points||0)/exam.totalPoints);const wrong=exam.tasks.filter(t=>!session.answers[t.id]?.result?.correct);
-    return `<div class="exam-result"><div class="card result-hero"><div class="result-orb">${p}%</div><div><div class="eyebrow">ERGEBNIS</div><h1>${session.points||0} / ${exam.totalPoints} Punkte · Note ca. ${gradeForPercent(p)}</h1><p>Die Note ist eine transparente Näherung. Wichtiger ist die Reparaturroute aus den falschen Teilkompetenzen.</p></div></div><div class="card"><h3>Aufgabenanalyse</h3>${exam.tasks.map(t=>`<div class="exam-result-row ${session.answers[t.id]?.result?.correct?'correct':'wrong'}"><b>${t.examNumber}</b><span>${t.title}</span><strong>${session.answers[t.id]?.result?.correct?t.points:0}/${t.points}</strong></div>`).join('')}</div><div class="actions center"><button class="btn primary" id="new-exam">Neue Klausur</button><button class="btn" id="exam-repair">${wrong.length} Fehler reparieren</button></div></div>`;
+    const exam=session.exam,p=Math.round(100*(session.points||0)/exam.totalPoints);const weak=exam.tasks.filter(t=>(session.answers[t.id]?.score?.points||0)<t.points*0.6);
+    const domainScores={};exam.tasks.forEach(t=>{const d=getLesson(t.lessonId)?.domain||'Grundlagen';if(!domainScores[d])domainScores[d]={got:0,max:0};domainScores[d].got+=session.answers[t.id]?.score?.points||0;domainScores[d].max+=t.points;});
+    const duration=Math.round((session.finished-session.started)/60000);
+    return `<div class="exam-result"><div class="card result-hero"><div class="result-orb">${p}%</div><div><div class="eyebrow">ERGEBNIS MIT TEILPUNKTEN</div><h1>${session.points||0} / ${exam.totalPoints} Punkte · Note ca. ${gradeForPercent(p)}</h1><p>Bearbeitungszeit: ${duration} Min. Die automatische Note und Teilpunktvergabe sind eine Lern-Näherung; der detaillierte Erwartungshorizont zeigt, wie sie zustande kommt.</p></div></div>
+      <div class="grid grid-3">${Object.entries(domainScores).map(([name,v])=>`<div class="card dimension-card"><span>${name}</span><strong>${Math.round(100*v.got/v.max)}%</strong>${progress(100*v.got/v.max)}<small>${Math.round(v.got*2)/2}/${v.max} P</small></div>`).join('')}</div>
+      <div class="card"><h3>Erwartungshorizont pro Aufgabe</h3>${exam.tasks.map(t=>{const a=session.answers[t.id]||{},score=a.score||{};return`<details class="exam-detail ${score.correct?'correct':score.points?'partial':'wrong'}"><summary><b>${t.examNumber}</b><span>${t.title}</span><strong>${score.points||0}/${t.points}</strong></summary><div class="exam-rubric-detail"><div><span>Ergebnis / Objekt</span><strong>${score.answerPoints||0}/${t.answerPoints||Math.max(1,t.points-1)}</strong></div><div><span>Rechenweg / Begründung</span><strong>${score.reasoningPoints||0}/${t.reasoningPoints||1}</strong></div></div><p><strong>Antwort:</strong> ${esc(t.type==='choice'?a.selected:a.input||'–')}</p><p><strong>Rechenweg:</strong> ${esc(a.work||'–')}</p><div class="diagnosis-box"><strong>${esc(score.diagnosis?.title||score.answerNote||'Auswertung')}</strong><p>${esc(score.diagnosis?.repair||score.reasoningNote||'')}</p></div>${solutionHTML(t)}</details>`}).join('')}</div>
+      <div class="card repair-priority"><h3>Priorisierte Reparaturroute</h3>${weak.length?weak.map((t,i)=>`<button data-exam-lesson="${t.lessonId}"><b>${i+1}</b><span>${getLesson(t.lessonId)?.title||t.title}</span><strong>${session.answers[t.id]?.score?.points||0}/${t.points} P</strong></button>`).join(''):'<p>Alle Aufgaben liegen mindestens im tragfähigen Bereich. Nutze jetzt zeitversetzten Abruf.</p>'}</div>
+      <div class="actions center"><button class="btn primary" id="new-exam">Neue Klausur</button><button class="btn" id="exam-repair">${weak.length} Bereiche reparieren</button></div></div>`;
   }
 
-  function bindExamResult(session){document.getElementById('new-exam').onclick=()=>{state.examSession=null;saveState();render();};document.getElementById('exam-repair').onclick=()=>route('errors');}
+  function bindExamResult(session){document.getElementById('new-exam').onclick=()=>{state.examSession=null;saveState();render();};document.getElementById('exam-repair').onclick=()=>route('errors');main.querySelectorAll('[data-exam-lesson]').forEach(button=>button.onclick=()=>openLesson(button.dataset.examLesson,'deep'));}
+
+  function pathwayTypeForLesson(lessonId) {
+    if (lessonId === 'F0') return 'linear';
+    if (lessonId === 'F2' || lessonId === 'A3') return 'quadratic';
+    if (lessonId === 'A6' || lessonId === 'A7') return 'rate';
+    if (lessonId === 'A10' || lessonId === 'A8' || lessonId === 'A9') return 'derivative';
+    if (lessonId === 'A11') return 'extrema';
+    if (lessonId === 'A12') return 'inflection';
+    if (lessonId === 'A13' || lessonId === 'A14') return 'curve';
+    if (lessonId?.startsWith('G')) return 'line';
+    return null;
+  }
+
+  function repairPhasesFor(error) {
+    const raw = `${error.diagnosis?.type || ''} ${error.diagnosis?.title || ''}`.toLowerCase();
+    let key = 'Verfahren';
+    if (raw.includes('konzept')) key = 'Konzept';
+    else if (raw.includes('algebra')) key = 'Algebra';
+    else if (raw.includes('vorzeichen')) key = 'Vorzeichen';
+    else if (raw.includes('vollständig') || raw.includes('lösung')) key = 'Vollständigkeit';
+    else if (raw.includes('koordinat')) key = 'Koordinaten';
+    else if (raw.includes('interpret')) key = 'Interpretation';
+    else if (raw.includes('flücht') || raw.includes('auslass')) key = 'Flüchtigkeit';
+    return { key, phases: V3.diagnosisPaths[key] || V3.diagnosisPaths.Verfahren };
+  }
 
   function renderErrors() {
     const unresolved=state.errors.filter(error=>!error.resolved);
     const groups={};unresolved.forEach(error=>{const key=error.diagnosis?.type||'Unklassifiziert';(groups[key]||(groups[key]=[])).push(error);});
     main.innerHTML=`<div class="page">${pageHead('FEHLERLABOR','Fehler werden zerlegt und repariert','Nicht „falsch“ ist die Diagnose. Entscheidend ist, ob der Fehler aus Konzept, Verfahren, Algebra, Koordinaten, Vollständigkeit oder Flüchtigkeit entstand.',`<button class="btn danger" id="clear-resolved">Erledigte löschen</button>`)}
       <div class="grid grid-4">${Object.entries(groups).slice(0,4).map(([type,items])=>`<div class="card stat-card"><div class="label">${esc(type)}</div><div class="value">${items.length}</div><div class="delta">offene Fehler</div></div>`).join('')||'<div class="card empty"><h3>Keine offenen Fehler</h3></div>'}</div>
-      <div class="error-lab-list">${unresolved.map(error=>`<article class="card error-lab-card"><div class="error-head"><div>${pill(error.diagnosis?.type||'Fehler','danger')}<small>${formatDate(error.created,true)} · ${getLesson(error.lessonId)?.title||error.lessonId}</small></div><button class="btn small" data-resolve-error="${error.id}">Als repariert prüfen</button></div><h3>${error.prompt}</h3><div class="error-comparison"><div><span>Deine Antwort</span><strong>${esc(error.user)}</strong></div><div><span>Erwartet</span><strong>${esc(Array.isArray(error.answer)?error.answer.join(', '):error.answer)}</strong></div></div><div class="diagnosis-box"><strong>${esc(error.diagnosis?.title||'Fehlerursache')}</strong><p>${esc(error.diagnosis?.repair||'Vergleiche den ersten abweichenden Schritt.')}</p></div><details><summary>Vollständigen Lösungsweg öffnen</summary>${solutionHTML(error)}</details>${error.reflection?`<div class="saved-reflection"><strong>Deine Reflexion</strong><p>${esc(error.reflection)}</p></div>`:''}<button class="btn primary" data-repair-task="${error.id}">Ähnliche Reparaturaufgabe erzeugen</button></article>`).join('')}</div>
+      <div class="error-lab-list">${unresolved.map(error=>`<article class="card error-lab-card"><div class="error-head"><div>${pill(error.diagnosis?.type||'Fehler','danger')}<small>${formatDate(error.created,true)} · ${getLesson(error.lessonId)?.title||error.lessonId}</small></div><button class="btn small" data-resolve-error="${error.id}">Als repariert prüfen</button></div><h3>${error.prompt}</h3><div class="error-comparison"><div><span>Deine Antwort</span><strong>${esc(error.user)}</strong></div><div><span>Erwartet</span><strong>${esc(Array.isArray(error.answer)?error.answer.join(', '):error.answer)}</strong></div></div><div class="diagnosis-box"><strong>${esc(error.diagnosis?.title||'Fehlerursache')}</strong><p>${esc(error.diagnosis?.repair||'Vergleiche den ersten abweichenden Schritt.')}</p></div><details><summary>Vollständigen Lösungsweg öffnen</summary>${solutionHTML(error)}</details>${error.reflection?`<div class="saved-reflection"><strong>Deine Reflexion</strong><p>${esc(error.reflection)}</p></div>`:''}${(()=>{const repair=repairPhasesFor(error);return `<div class="repair-protocol"><strong>${repair.key}-Reparatur in drei Stufen</strong><ol>${repair.phases.map(p=>`<li>${esc(p)}</li>`).join('')}</ol></div>`})()}<div class="actions"><button class="btn primary" data-repair-task="${error.id}">Parallelaufgabe</button><button class="btn" data-repair-path="${error.id}">Rechenweg-Mission</button></div></article>`).join('')}</div>
     </div>`;
     main.querySelectorAll('[data-resolve-error]').forEach(button=>button.onclick=()=>{const error=state.errors.find(e=>String(e.id)===button.dataset.resolveError);if(error){error.resolved=true;state.xp+=10;saveState();render();}});
     main.querySelectorAll('[data-repair-task]').forEach(button=>button.onclick=()=>{const error=state.errors.find(e=>String(e.id)===button.dataset.repairTask);if(!error)return;const gen=generatorForLesson(error.lessonId);startGenerator(gen);});
+    main.querySelectorAll('[data-repair-path]').forEach(button=>button.onclick=()=>{const error=state.errors.find(e=>String(e.id)===button.dataset.repairPath);if(!error)return;const type=pathwayTypeForLesson(error.lessonId);if(type)startPathway(type);else openLesson(error.lessonId,'deep');});
     document.getElementById('clear-resolved').onclick=()=>{state.errors=state.errors.filter(e=>!e.resolved);saveState();render();};
   }
 
@@ -1304,11 +1544,11 @@
 
   function renderSettings() {
     main.innerHTML=`<div class="page">${pageHead('SYSTEM','Einstellungen','Alle Daten bleiben lokal in diesem Browser. Keine Anmeldung, Cloud oder Konten.')}
-      <div class="card"><div class="settings-row"><div><strong>Helles Design</strong><p class="subtitle">Für helle Umgebung.</p></div><div class="toggle ${state.theme==='light'?'on':''}" id="theme-toggle"><i></i></div></div><div class="settings-row"><div><strong>Bewegungen reduzieren</strong><p class="subtitle">Weniger Scroll- und Übergangsanimation.</p></div><div class="toggle ${state.settings.reducedMotion?'on':''}" id="motion-toggle"><i></i></div></div><div class="settings-row"><div><strong>Lernstand zurücksetzen</strong><p class="subtitle">Entfernt Mastery, Fehler, XP und Klausuren dauerhaft auf diesem Gerät.</p></div><button class="btn danger" id="reset-all">Alles löschen</button></div><div class="settings-row"><div><strong>Technischer Status</strong><p class="subtitle">GitHub Flat · kein npm · lokale Speicherung · MathJax · Generator- und Äquivalenz-Engine</p></div><span class="pill green">V0.2</span></div></div>
+      <div class="card"><div class="settings-row"><div><strong>Helles Design</strong><p class="subtitle">Für helle Umgebung.</p></div><div class="toggle ${state.theme==='light'?'on':''}" id="theme-toggle"><i></i></div></div><div class="settings-row"><div><strong>Bewegungen reduzieren</strong><p class="subtitle">Weniger Scroll- und Übergangsanimation.</p></div><div class="toggle ${state.settings.reducedMotion?'on':''}" id="motion-toggle"><i></i></div></div><div class="settings-row"><div><strong>Lernstand zurücksetzen</strong><p class="subtitle">Entfernt Mastery, Fehler, XP und Klausuren dauerhaft auf diesem Gerät.</p></div><button class="btn danger" id="reset-all">Alles löschen</button></div><div class="settings-row"><div><strong>Technischer Status</strong><p class="subtitle">GitHub Flat · kein npm · lokale Speicherung · MathJax · Rechenweg-Rubrik · Teilpunkte · 3D-Canvas · Generator- und Äquivalenz-Engine</p></div><span class="pill green">V0.3</span></div></div>
     </div>`;
     document.getElementById('theme-toggle').onclick=()=>{state.theme=state.theme==='light'?'dark':'light';saveState();applyTheme();render();};
     document.getElementById('motion-toggle').onclick=()=>{state.settings.reducedMotion=!state.settings.reducedMotion;saveState();render();};
-    document.getElementById('reset-all').onclick=()=>{if(confirm('Wirklich den gesamten lokalen Lernstand löschen?')){try{localStorage.removeItem(STORAGE_KEY);}catch(error){console.warn('Lokaler Speicher ist in diesem Kontext nicht zugänglich:',error);}state=structuredClone(defaultState);applyTheme();render();}};
+    document.getElementById('reset-all').onclick=()=>{if(confirm('Wirklich den gesamten lokalen Lernstand löschen?')){try{localStorage.removeItem(STORAGE_KEY);localStorage.removeItem(LEGACY_KEY);}catch(error){console.warn('Lokaler Speicher ist in diesem Kontext nicht zugänglich:',error);}state=structuredClone(defaultState);applyTheme();render();}};
   }
 
   function render() {
@@ -1321,10 +1561,14 @@
       case 'lesson': renderLesson(); break;
       case 'generators': renderGenerators(); break;
       case 'coach': renderCoach(); break;
+      case 'pathway': renderPathway(); break;
       case 'diagnostic': renderDiagnostic(); break;
       case 'practice': renderPractice(); break;
       case 'exam': renderExam(); break;
       case 'graph': renderGraph(); break;
+      case 'curveLab': renderCurveLab(); break;
+      case 'space': renderSpaceLab(); break;
+      case 'planner': renderPlanner(); break;
       case 'formulas': renderFormulas(); break;
       case 'errors': renderErrors(); break;
       case 'analytics': renderAnalytics(); break;
