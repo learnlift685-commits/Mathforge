@@ -1,0 +1,39 @@
+MATHFORGE NRW V0.4 — UX REBUILD
+
+HAUPTZIEL
+Die vorhandene Tiefe von V0.3 bleibt erhalten, wird aber nicht mehr gleichzeitig präsentiert.
+
+NEUE HAUPTNAVIGATION
+- Heute
+- Lernen
+- Üben
+- Klausuren
+- Fortschritt
+- Einstellungen
+
+NEU: HEUTE
+- eine dominante nächste Lernmission
+- Weiterlernen
+- fällige Wiederholungen
+- Fehlerfokus
+- kompakter Tagesüberblick
+- situationsbezogene Schnellhilfe
+
+NEU: ÜBEN
+- Geführt: Step Coach und Rechenwegprüfung
+- Frei: Smart Practice und Infinite Forge
+- Fehlerfokus: Fehler-DNA und Reparaturroute
+- Spezialwerkzeuge in einem einklappbaren Bereich
+
+NEU: FORTSCHRITT
+- klarer Gesamtstatus
+- drei größte Lernhebel
+- direkte Trainingsaktion
+- Detailzugriff auf NRW-Atlas, Lernanalyse, Fehlerprofil und Wochenplan
+
+PROGRESSIVE DISCLOSURE
+Graphen-Labor, Kurven-Simulator, 3D-Vektorraum, Diagnose, Formelwerk und Generator-Auswahl bleiben vollständig enthalten, erscheinen aber erst im passenden Kontext.
+
+DATEN
+- V0.3-Lernstand wird automatisch in V0.4 übernommen.
+- Speicherung bleibt vollständig lokal.

@@ -4,8 +4,9 @@
   const DATA = window.MATHFORGE_DATA;
   const V3 = window.MATHFORGE_V03_DATA;
   const ENGINE = window.MATHFORGE_ENGINE;
-  const STORAGE_KEY = 'mathforge_nrw_v03';
-  const LEGACY_KEY = 'mathforge_nrw_v02';
+  const STORAGE_KEY = 'mathforge_nrw_v04';
+  const LEGACY_KEY = 'mathforge_nrw_v03';
+  const LEGACY_KEY_V2 = 'mathforge_nrw_v02';
   const DIMENSIONS = [
     ['understanding', 'Verständnis'],
     ['method', 'Verfahren'],
@@ -15,7 +16,7 @@
   const PHASES = DATA.learningArchitecture?.phases || [];
 
   const defaultState = {
-    version: 3,
+    version: 4,
     xp: 0,
     level: 1,
     streak: 1,
@@ -56,22 +57,11 @@
   const nav = document.getElementById('nav');
 
   const navItems = [
-    ['dashboard', '⌂', 'Start'],
-    ['curriculum', '◎', 'NRW-Atlas'],
-    ['learn', '◇', 'Masterclasses'],
-    ['generators', '∞', 'Infinite Forge'],
-    ['coach', '↳', 'Step Coach'],
-    ['pathway', '≡', 'Rechenweg-Engine'],
-    ['diagnostic', '⌁', 'Diagnose'],
-    ['practice', '⚡', 'Smart Practice'],
-    ['exam', '▣', 'Klausurzentrum'],
-    ['graph', '∿', 'Graphen-Labor'],
-    ['curveLab', '⌇', 'Kurven-Simulator'],
-    ['space', '◫', '3D-Vektorraum'],
-    ['planner', '▦', 'Wochenplan'],
-    ['formulas', 'ƒ', 'Formelwerk'],
-    ['errors', '!', 'Fehlerlabor'],
-    ['analytics', '↗', 'Lernanalyse'],
+    ['dashboard', '⌂', 'Heute'],
+    ['learn', '◇', 'Lernen'],
+    ['practiceHub', '⚡', 'Üben'],
+    ['exam', '▣', 'Klausuren'],
+    ['progressHub', '↗', 'Fortschritt'],
     ['settings', '⚙', 'Einstellungen']
   ];
 
@@ -86,10 +76,11 @@
     try {
       const current = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
       if (current) return deepMerge(defaultState, current);
-      const legacy = JSON.parse(localStorage.getItem(LEGACY_KEY) || 'null');
+      const legacy = JSON.parse(localStorage.getItem(LEGACY_KEY) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY_V2) || 'null');
       if (legacy) {
         const migrated = deepMerge(defaultState, legacy);
-        migrated.version = 3;
+        migrated.version = 4;
+        migrated.route = ['dashboard','learn','practiceHub','exam','progressHub','settings'].includes(migrated.route) ? migrated.route : 'dashboard';
         return migrated;
       }
     } catch (error) {
@@ -514,59 +505,112 @@
 
   function renderDashboard() {
     const rec = todayRecommendation();
-    const attempts7 = state.attemptLog.filter(item => item.created > Date.now() - 7 * 86400e3);
-    const accuracy7 = attempts7.length ? 100 * attempts7.filter(item => item.correct).length / attempts7.length : 0;
-    const weakestDimension = [...DIMENSIONS].sort((a, b) => dimensionAverage(a[0]) - dimensionAverage(b[0]))[0];
-    main.innerHTML = `<div class="page">
-      ${pageHead('MATHFORGE INTELLIGENCE 3.0', 'Dein Mathe-Cockpit', 'Strategie, Zwischenschritte, Begründung, Ergebnis, Kontrolle und Langzeitabruf werden getrennt trainiert und bewertet.', `
-        <button class="btn primary" id="dashboard-start">Masterclass starten</button>
-        <button class="btn" id="dashboard-coach">Step Coach</button><button class="btn" id="dashboard-pathway">Rechenweg-Engine</button>
-      `)}
-      <div class="grid grid-4">
-        <div class="card stat-card"><div class="label">Gesamt-Mastery</div><div class="value">${Math.round(globalMastery())}%</div><div class="delta">über ${DATA.lessons.length} Module</div></div>
-        <div class="card stat-card"><div class="label">7-Tage-Trefferquote</div><div class="value">${Math.round(accuracy7)}%</div><div class="delta">${attempts7.length} Versuche</div></div>
-        <div class="card stat-card"><div class="label">Lernserie</div><div class="value">${state.streak}</div><div class="delta">Tage · Level ${state.level}</div></div>
-        <div class="card stat-card"><div class="label">Fällige Abrufe</div><div class="value">${dueCount()}</div><div class="delta">Spaced Retrieval · V0.3</div></div>
-      </div>
+    const due = dueCount();
+    const openErrors = state.errors.filter(item => !item.resolved).length;
+    const nextAction = due > 0 ? 'Fällige Wiederholung starten' : 'Heutige Masterclass starten';
+    main.innerHTML = `<div class="page calm-page">
+      ${pageHead('HEUTE', `Bereit für deine nächste Mathe-Mission?`, 'Eine klare Aufgabe nach der anderen. Spezialwerkzeuge erscheinen erst, wenn sie dir wirklich helfen.', `<button class="btn ghost" id="today-plan">Wochenplan</button>`)}
 
-      <div class="section-title"><h2>Heutige Mission</h2><span>Schwäche + Fälligkeit + Langzeitabruf</span></div>
-      <div class="card hero-card deep-hero">
-        <div>
-          <div class="lesson-meta">${pill(rec.domain, 'cyan')}${pill(`${rec.minutes} Min.`)}${pill(rec.competencies.join(' · '), 'green')}</div>
+      <section class="today-hero card">
+        <div class="today-hero-copy">
+          <div class="lesson-meta">${pill(rec.domain, 'cyan')}${pill(`${rec.minutes} Min.`)}${due ? pill(`${due} Wiederholungen fällig`, 'orange') : pill('Plan aktuell', 'green')}</div>
+          <span class="micro-label">DEIN NÄCHSTER SCHRITT</span>
           <h2>${rec.title}</h2>
           <p>${rec.summary}</p>
-          <div class="actions"><button class="btn primary" id="hero-masterclass">Masterclass öffnen</button><button class="btn" id="hero-infinite">Unendliche Varianten</button></div>
+          <div class="today-actions">
+            <button class="btn primary xl" id="today-start">${nextAction}</button>
+            <button class="btn" id="today-details">Thema ansehen</button>
+          </div>
         </div>
-        <div class="mastery-panel">${ring(lessonMastery(rec.id))}<div class="label">Mastery</div><small>${Math.round(phaseCompletion(rec.id))}% Lernphasen erledigt</small></div>
+        <div class="today-score">
+          ${ring(lessonMastery(rec.id))}
+          <strong>${Math.round(phaseCompletion(rec.id))}%</strong>
+          <span>Lernpfad abgeschlossen</span>
+        </div>
+      </section>
+
+      <div class="today-grid">
+        <button class="card quiet-action" id="today-resume"><span class="quiet-icon">▶</span><div><small>WEITERLERNEN</small><strong>${rec.title}</strong><p>Setze genau dort fort, wo dein Lernstand den größten Hebel hat.</p></div><b>→</b></button>
+        <button class="card quiet-action" id="today-review"><span class="quiet-icon">↻</span><div><small>WIEDERHOLEN</small><strong>${due} fällige Abrufe</strong><p>Ohne vorheriges Nachlesen langfristig aus dem Gedächtnis abrufen.</p></div><b>→</b></button>
+        <button class="card quiet-action ${openErrors ? 'attention' : ''}" id="today-repair"><span class="quiet-icon">!</span><div><small>FEHLERFOKUS</small><strong>${openErrors} offene Fehler</strong><p>${openErrors ? 'Repariere die Ursache statt nur dieselbe Aufgabe erneut zu rechnen.' : 'Aktuell keine offenen Reparaturen.'}</p></div><b>→</b></button>
       </div>
 
-      <div class="section-title"><h2>Vier getrennte Lernfähigkeiten</h2><span>damit eine richtige Antwort nicht mit echtem Können verwechselt wird</span></div>
-      <div class="grid grid-4 dimension-grid">
-        ${DIMENSIONS.map(([key, label]) => `<div class="card dimension-card"><span>${label}</span><strong>${Math.round(dimensionAverage(key))}%</strong>${progress(dimensionAverage(key))}<small>${key === weakestDimension[0] ? 'Aktuell größter Hebel' : 'wird separat gemessen'}</small></div>`).join('')}
-      </div>
-
-      <div class="section-title"><h2>FORGE-Lernarchitektur</h2><span>acht Phasen gegen oberflächliches Lernen</span></div>
-      <div class="forge-map">
-        ${PHASES.map((phase, index) => `<div class="forge-phase"><b>${index + 1}</b><div><strong>${phase.title}</strong><p>${phase.description}</p></div></div>`).join('')}
-      </div>
-
-      <div class="grid grid-2 dashboard-lower">
-        <div class="card">
-          <div class="section-title compact"><h3>Domänen</h3></div>
-          ${['Grundlagen', 'Analysis', 'Geometrie'].map(domain => `<div class="skill-row"><span>${domain}</span>${progress(groupMastery(domain))}<strong>${Math.round(groupMastery(domain))}%</strong></div>`).join('')}
+      <section class="section-shell">
+        <div class="section-title"><h2>Dein Überblick</h2><span>nur das, was heute eine Entscheidung verändert</span></div>
+        <div class="overview-strip">
+          <div><small>Gesamt-Mastery</small><strong>${Math.round(globalMastery())}%</strong></div>
+          <div><small>Lernserie</small><strong>${state.streak} Tage</strong></div>
+          <div><small>Level</small><strong>${state.level}</strong></div>
+          <div><small>Lernzeit</small><strong>${state.totalMinutes} Min.</strong></div>
         </div>
-        <div class="card">
-          <div class="section-title compact"><h3>Dein nächster Verbesserungsschritt</h3></div>
-          <div class="insight large"><strong>${weakestDimension[1]}</strong><p>${weakestDimension[0] === 'understanding' ? 'Nutze Konzeptkarten und erkläre Begriffe ohne Formel.' : weakestDimension[0] === 'method' ? 'Arbeite mit dem Step Coach und benenne jede verwendete Regel.' : weakestDimension[0] === 'transfer' ? 'Löse neue gemischte Aufgaben ohne Themenüberschrift.' : 'Bearbeite fällige Abrufe ohne vorher die Theorie zu lesen.'}</p></div>
+      </section>
+
+      <section class="section-shell">
+        <div class="section-title"><h2>Schnellzugriff</h2><span>für konkrete Situationen</span></div>
+        <div class="quick-grid">
+          <button data-quick-route="diagnostic"><span>⌁</span><strong>Ich weiß nicht, wo meine Lücke liegt</strong><small>Diagnose starten</small></button>
+          <button data-quick-route="pathway"><span>≡</span><strong>Mein Rechenweg wird falsch</strong><small>Schrittweise prüfen</small></button>
+          <button data-quick-route="exam"><span>▣</span><strong>Ich schreibe bald eine Klausur</strong><small>Prüfungsmodus</small></button>
+          <button data-quick-route="formulas"><span>ƒ</span><strong>Ich suche eine Formel</strong><small>Formelwerk öffnen</small></button>
         </div>
+      </section>
+    </div>`;
+    document.getElementById('today-plan').onclick = () => route('planner');
+    document.getElementById('today-start').onclick = () => due > 0 ? route('practice') : openLesson(rec.id, 'overview');
+    document.getElementById('today-details').onclick = () => openLesson(rec.id, 'overview');
+    document.getElementById('today-resume').onclick = () => openLesson(rec.id, 'overview');
+    document.getElementById('today-review').onclick = () => route('practice');
+    document.getElementById('today-repair').onclick = () => route(openErrors ? 'errors' : 'practiceHub');
+    main.querySelectorAll('[data-quick-route]').forEach(button => button.onclick = () => route(button.dataset.quickRoute));
+  }
+
+  function renderPracticeHub() {
+    const openErrors = state.errors.filter(item => !item.resolved).length;
+    main.innerHTML = `<div class="page calm-page">
+      ${pageHead('ÜBEN', 'Wähle nur die Art des Trainings', 'Die App entscheidet im Hintergrund über passende Themen, Schwierigkeit, Wiederholung und Fehlertypen.')}
+      <div class="mode-grid">
+        <article class="card mode-card featured"><div class="mode-icon">↳</div><div><span>GEFÜHRT</span><h2>Schritt für Schritt lernen</h2><p>Hilfen werden kontrolliert freigegeben. Strategie, Zwischenschritte, Begründung und Kontrolle werden einzeln trainiert.</p><ul><li>Step Coach</li><li>Rechenwegprüfung</li><li>Teilpunkte und Hinweise</li></ul></div><button class="btn primary" data-mode="coach">Geführt starten</button></article>
+        <article class="card mode-card"><div class="mode-icon">∞</div><div><span>FREI</span><h2>Selbstständig trainieren</h2><p>Neue Varianten, gemischte Themen und Aufgaben ohne vorgegebenes Verfahren.</p><ul><li>Smart Practice</li><li>Infinite Forge</li><li>Transfertraining</li></ul></div><button class="btn primary" data-mode="practice">Freies Training</button></article>
+        <article class="card mode-card ${openErrors ? 'repair' : ''}"><div class="mode-icon">!</div><div><span>FEHLERFOKUS</span><h2>Ursachen gezielt reparieren</h2><p>Die App bündelt wiederkehrende Denkfehler und erstellt ähnliche Reparaturaufgaben.</p><ul><li>${openErrors} offene Fehler</li><li>Fehler-DNA</li><li>Reparaturroute</li></ul></div><button class="btn primary" data-mode="errors">Fehlertraining</button></article>
+      </div>
+      <details class="card advanced-tools"><summary><span>Erweiterte Werkzeuge</span><small>Simulationen, Formeln und Spezialtrainer</small></summary><div class="tool-grid">
+        <button data-tool="graph"><span>∿</span><strong>Graphen-Labor</strong><small>Parameter dynamisch verändern</small></button>
+        <button data-tool="curveLab"><span>⌇</span><strong>Kurven-Simulator</strong><small>f, f′ und f″ verbinden</small></button>
+        <button data-tool="space"><span>◫</span><strong>3D-Vektorraum</strong><small>Geraden räumlich verstehen</small></button>
+        <button data-tool="formulas"><span>ƒ</span><strong>Formelwerk</strong><small>Formeln mit Einsatzhinweisen</small></button>
+        <button data-tool="generators"><span>∞</span><strong>Generator-Auswahl</strong><small>Aufgabentyp selbst festlegen</small></button>
+        <button data-tool="diagnostic"><span>⌁</span><strong>Diagnose</strong><small>Grundlagenlücken lokalisieren</small></button>
+      </div></details>
+    </div>`;
+    main.querySelectorAll('[data-mode]').forEach(button => button.onclick = () => route(button.dataset.mode));
+    main.querySelectorAll('[data-tool]').forEach(button => button.onclick = () => route(button.dataset.tool));
+  }
+
+  function renderProgressHub() {
+    const weak = [...DATA.lessons].sort((a,b)=>lessonMastery(a.id)-lessonMastery(b.id)).slice(0,3);
+    const attempts7 = state.attemptLog.filter(item => item.created > Date.now() - 7 * 86400e3);
+    const accuracy = attempts7.length ? Math.round(100 * attempts7.filter(item=>item.correct).length/attempts7.length) : 0;
+    main.innerHTML = `<div class="page calm-page">
+      ${pageHead('FORTSCHRITT', 'Was kannst du – und was kostet noch Punkte?', 'Keine Statistik um der Statistik willen. Jede Anzeige führt zu einer konkreten Lernentscheidung.')}
+      <div class="progress-hero card"><div>${ring(globalMastery())}</div><div><span>GESAMTSTATUS</span><h2>${globalMastery() >= 80 ? 'Klausurnah' : globalMastery() >= 55 ? 'Im Aufbau' : 'Fundament stärken'}</h2><p>${DATA.lessons.filter(l=>lessonMastery(l.id)>=80).length} von ${DATA.lessons.length} Modulen sind aktuell klausurreif.</p></div><button class="btn primary" id="progress-next">Nächste Lücke trainieren</button></div>
+      <div class="grid grid-3">
+        <div class="card stat-card"><div class="label">7-Tage-Trefferquote</div><div class="value">${accuracy}%</div><div class="delta">${attempts7.length} Versuche</div></div>
+        <div class="card stat-card"><div class="label">Offene Fehler</div><div class="value">${state.errors.filter(e=>!e.resolved).length}</div><div class="delta">mit Reparaturpfad</div></div>
+        <div class="card stat-card"><div class="label">Fällige Abrufe</div><div class="value">${dueCount()}</div><div class="delta">Langzeitlernen</div></div>
+      </div>
+      <div class="section-title"><h2>Deine drei größten Hebel</h2><span>nach Mastery sortiert</span></div>
+      <div class="leverage-list">${weak.map((lesson,i)=>`<button data-progress-lesson="${lesson.id}"><b>${i+1}</b><div><strong>${lesson.title}</strong><span>${lesson.domain} · ${Math.round(lessonMastery(lesson.id))}% Mastery</span>${progress(lessonMastery(lesson.id))}</div><em>Trainieren →</em></button>`).join('')}</div>
+      <div class="section-title"><h2>Details</h2><span>nur öffnen, wenn du tiefer analysieren möchtest</span></div>
+      <div class="detail-links">
+        <button data-progress-route="curriculum"><span>◎</span><div><strong>NRW-Kompetenzatlas</strong><small>Alle 31 EF-Kompetenzen</small></div></button>
+        <button data-progress-route="analytics"><span>↗</span><div><strong>Lernanalyse</strong><small>Dimensionen und Verlauf</small></div></button>
+        <button data-progress-route="errors"><span>!</span><div><strong>Fehlerprofil</strong><small>Denkfehler und Reparaturen</small></div></button>
+        <button data-progress-route="planner"><span>▦</span><div><strong>Wochenplan</strong><small>Adaptive Lernverteilung</small></div></button>
       </div>
     </div>`;
-
-    document.getElementById('dashboard-start').onclick = () => openLesson(rec.id, 'overview');
-    document.getElementById('dashboard-coach').onclick = () => route('coach');
-    document.getElementById('dashboard-pathway').onclick = () => route('pathway');
-    document.getElementById('hero-masterclass').onclick = () => openLesson(rec.id, 'overview');
-    document.getElementById('hero-infinite').onclick = () => startGenerator(generatorForLesson(rec.id));
+    document.getElementById('progress-next').onclick = () => openLesson(weak[0].id, 'overview');
+    main.querySelectorAll('[data-progress-lesson]').forEach(button=>button.onclick=()=>openLesson(button.dataset.progressLesson,'overview'));
+    main.querySelectorAll('[data-progress-route]').forEach(button=>button.onclick=()=>route(button.dataset.progressRoute));
   }
 
   function renderCurriculum() {
@@ -1544,11 +1588,11 @@
 
   function renderSettings() {
     main.innerHTML=`<div class="page">${pageHead('SYSTEM','Einstellungen','Alle Daten bleiben lokal in diesem Browser. Keine Anmeldung, Cloud oder Konten.')}
-      <div class="card"><div class="settings-row"><div><strong>Helles Design</strong><p class="subtitle">Für helle Umgebung.</p></div><div class="toggle ${state.theme==='light'?'on':''}" id="theme-toggle"><i></i></div></div><div class="settings-row"><div><strong>Bewegungen reduzieren</strong><p class="subtitle">Weniger Scroll- und Übergangsanimation.</p></div><div class="toggle ${state.settings.reducedMotion?'on':''}" id="motion-toggle"><i></i></div></div><div class="settings-row"><div><strong>Lernstand zurücksetzen</strong><p class="subtitle">Entfernt Mastery, Fehler, XP und Klausuren dauerhaft auf diesem Gerät.</p></div><button class="btn danger" id="reset-all">Alles löschen</button></div><div class="settings-row"><div><strong>Technischer Status</strong><p class="subtitle">GitHub Flat · kein npm · lokale Speicherung · MathJax · Rechenweg-Rubrik · Teilpunkte · 3D-Canvas · Generator- und Äquivalenz-Engine</p></div><span class="pill green">V0.3</span></div></div>
+      <div class="card"><div class="settings-row"><div><strong>Helles Design</strong><p class="subtitle">Für helle Umgebung.</p></div><div class="toggle ${state.theme==='light'?'on':''}" id="theme-toggle"><i></i></div></div><div class="settings-row"><div><strong>Bewegungen reduzieren</strong><p class="subtitle">Weniger Scroll- und Übergangsanimation.</p></div><div class="toggle ${state.settings.reducedMotion?'on':''}" id="motion-toggle"><i></i></div></div><div class="settings-row"><div><strong>Lernstand zurücksetzen</strong><p class="subtitle">Entfernt Mastery, Fehler, XP und Klausuren dauerhaft auf diesem Gerät.</p></div><button class="btn danger" id="reset-all">Alles löschen</button></div><div class="settings-row"><div><strong>Technischer Status</strong><p class="subtitle">GitHub Flat · kein npm · lokale Speicherung · MathJax · Rechenweg-Rubrik · Teilpunkte · 3D-Canvas · Generator- und Äquivalenz-Engine</p></div><span class="pill green">V0.4 UX</span></div></div>
     </div>`;
     document.getElementById('theme-toggle').onclick=()=>{state.theme=state.theme==='light'?'dark':'light';saveState();applyTheme();render();};
     document.getElementById('motion-toggle').onclick=()=>{state.settings.reducedMotion=!state.settings.reducedMotion;saveState();render();};
-    document.getElementById('reset-all').onclick=()=>{if(confirm('Wirklich den gesamten lokalen Lernstand löschen?')){try{localStorage.removeItem(STORAGE_KEY);localStorage.removeItem(LEGACY_KEY);}catch(error){console.warn('Lokaler Speicher ist in diesem Kontext nicht zugänglich:',error);}state=structuredClone(defaultState);applyTheme();render();}};
+    document.getElementById('reset-all').onclick=()=>{if(confirm('Wirklich den gesamten lokalen Lernstand löschen?')){try{localStorage.removeItem(STORAGE_KEY);localStorage.removeItem(LEGACY_KEY);localStorage.removeItem(LEGACY_KEY_V2);}catch(error){console.warn('Lokaler Speicher ist in diesem Kontext nicht zugänglich:',error);}state=structuredClone(defaultState);applyTheme();render();}};
   }
 
   function render() {
@@ -1558,6 +1602,8 @@
     switch (state.route) {
       case 'curriculum': renderCurriculum(); break;
       case 'learn': renderLearn(); break;
+      case 'practiceHub': renderPracticeHub(); break;
+      case 'progressHub': renderProgressHub(); break;
       case 'lesson': renderLesson(); break;
       case 'generators': renderGenerators(); break;
       case 'coach': renderCoach(); break;
