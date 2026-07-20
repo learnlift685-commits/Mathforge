@@ -1,0 +1,12 @@
+MATHFORGE NRW V1.1 – ACTIVE LEARNING
+
+- Textwand im Bereich „Verstehen“ durch einen geführten Schritt-für-Schritt-Pfad ersetzt.
+- Pro Bildschirm wird nur noch ein Theoriegedanke angezeigt.
+- Jeder Abschnitt verlangt eine eigene Erklärung oder ein Mini-Beispiel.
+- Weitergehen ist erst nach aktivem Abruf möglich.
+- Denkhinweise ergänzt, ohne die Antwort direkt vorzugeben.
+- Fortschrittsanzeige und Schrittpunkte pro Masterclass ergänzt.
+- Kompakte Gesamtreferenz bleibt einklappbar verfügbar.
+- Worked Examples verlangen vor jedem aufgedeckten Schritt eine Vorhersage.
+- iPad- und Mobilansicht für die neue Lernführung angepasst.
+- V1.0-Lernstände werden automatisch migriert.

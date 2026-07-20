@@ -1,66 +1,13 @@
-MATHFORGE NRW V1.0 FINAL – BUILD- UND PRÜFBERICHT
+MATHFORGE NRW V1.1 – BUILD REPORT
 
-RELEASE-STATUS
-V1.0 FINAL für den in der App definierten NRW-EF-Umfang.
-GitHub-Flat-Build ohne npm, Build-Schritt, Anmeldung oder Backend.
+Geprüft:
+- JavaScript-Syntax mit Node.js: bestanden
+- flache GitHub-Pages-Struktur: bestanden
+- Migration von V1.0 über mathforge_nrw_v10: eingebaut
+- geführter Konzeptpfad für alle vorhandenen Masterclasses: datengetrieben verfügbar
+- Pflicht-Abruf vor dem Weitergehen: eingebaut
+- Vorhersagepflicht bei Worked Examples: eingebaut
+- responsive CSS für iPad und Mobilgeräte: ergänzt
+- keine neuen externen Abhängigkeiten: bestätigt
 
-INHALTSAUDIT
-- 24 eindeutige Masterclasses
-- 31 abgebildete EF-Kompetenzen
-- 96 feste Aufgaben
-- 45 geführte Beispiele
-- 12 Diagnoseaufgaben
-- 91 Generatorfamilien
-- 21 Klausurformate
-- 8 mehrteilige Mischmissionen
-- 14 Visual-Labore
-- 36 Formeleinträge
-
-AUTOMATISCHE MATHE- UND STRESSTESTS
-- 9.100 zufällig erzeugte Aufgaben aus allen 91 Generatorfamilien geprüft.
-- Jede erzeugte Aufgabe wurde mit ihrer eigenen mathematisch korrekten Lösung gegengeprüft.
-- 210 vollständige Klausuren aus allen 21 Profilen erzeugt und strukturell geprüft.
-- 200 mehrteilige Mischmissionen erzeugt und geprüft.
-- Keine verbleibenden Eigenlösungs-, Struktur-, NaN-, Platzhalter- oder Steuerzeichenfehler in diesen Tests.
-
-EINGABETESTS
-Erfolgreich geprüft wurden unter anderem:
-- x = 3
-- 1,5 m
-- √(9)
-- x₁ = -2, x₂ = 5
-- Punkte mit Dezimalkomma
-- Vektoren in Winkel- beziehungsweise Tupelschreibweise
-- leere Menge ∅
-- äquivalente Termreihenfolgen
-
-TECHNISCHE PRÜFUNG
-- JavaScript-Syntax aller lokalen JS-Dateien bestanden.
-- HTML geparst.
-- Manifest als gültiges JSON geparst.
-- Alle lokalen index.html-Verweise vorhanden.
-- Keine undefinierten CSS-Variablen.
-- Icons als 192×192 und 512×512 PNG geprüft.
-- 19 zentrale Ansichten in einer DOM-Testumgebung ohne sichtbare undefined-, NaN- oder Object-Platzhalter gerendert.
-- Service-Worker-Cache nutzt relative Pfade für GitHub Pages.
-
-VISUELLE BROWSERPRÜFUNG
-- Echter Chromium-Render unter virtueller Anzeige durchgeführt.
-- Desktop-Dashboard, Lernbereich, Klausurzentrum und Masterclass geprüft.
-- iPad-Hochformat geprüft.
-- Lokale MathJax-Formeln sichtbar korrekt gerendert.
-- Navigation, Kartenhierarchie und Spezialwerkzeuge auf Überladung kontrolliert.
-
-BEHOBENE FINALFEHLER
-- Diagnose-Schaltfläche mit ungültiger Route.
-- Verlorene LaTeX-Backslashes bei Teilen der Vektorformeln.
-- Fehlende Oberflächenvariablen im CSS.
-- Zu enger iPad-Desktopmodus.
-- Zu unflexible natürliche Antwortformate.
-- Browser-Navigation und Offline-Fallback gehärtet.
-
-BEKANNTE, BEWUSSTE GRENZE
-Die lokale Antwort- und Rubrik-Engine kann viele vorgesehene numerische, algebraische und strukturierte Lösungen prüfen. Sie kann nicht garantieren, jeden beliebigen freien Beweis, jede sprachliche Begründung oder jeden ungewöhnlichen alternativen Lösungsweg semantisch korrekt zu bewerten. Diese Grenze ist in der App transparent ausgewiesen.
-
-ERGEBNIS
-Alle für dieses Release vorgesehenen automatischen und visuellen Prüfungen wurden bestanden. Keine bekannten blockierenden Fehler verbleiben.
+Die mathematischen Inhalte, Generatoren, Klausuren und Visual-Labore der V1.0 bleiben erhalten. V1.1 verändert primär die didaktische Präsentation und aktive Verarbeitung.

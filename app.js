@@ -6,7 +6,8 @@
   const V5 = window.MATHFORGE_V05_DATA || { lessonExtensions: {}, visualLabs: {}, examCards: [] };
   const V6 = window.MATHFORGE_V06_DATA || { examCards: [], caseCards: [], operatorGuide: {}, errorTaxonomy: {}, completionCriteria: [] };
   const ENGINE = window.MATHFORGE_ENGINE;
-  const STORAGE_KEY = 'mathforge_nrw_v10';
+  const STORAGE_KEY = 'mathforge_nrw_v11';
+  const LEGACY_KEY_V10 = 'mathforge_nrw_v10';
   const LEGACY_KEY_V6 = 'mathforge_nrw_v06';
   const LEGACY_KEY_V5 = 'mathforge_nrw_v05';
   const LEGACY_KEY_V4 = 'mathforge_nrw_v04';
@@ -21,7 +22,7 @@
   const PHASES = DATA.learningArchitecture?.phases || [];
 
   const defaultState = {
-    version: 10,
+    version: 11,
     xp: 0,
     level: 1,
     streak: 1,
@@ -85,10 +86,10 @@
     try {
       const current = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
       if (current) return deepMerge(defaultState, current);
-      const legacy = JSON.parse(localStorage.getItem(LEGACY_KEY_V6) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY_V5) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY_V4) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY_V2) || 'null');
+      const legacy = JSON.parse(localStorage.getItem(LEGACY_KEY_V10) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY_V6) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY_V5) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY_V4) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY_V2) || 'null');
       if (legacy) {
         const migrated = deepMerge(defaultState, legacy);
-        migrated.version = 10;
+        migrated.version = 11;
         migrated.route = ['dashboard','learn','practiceHub','exam','progressHub','settings'].includes(migrated.route) ? migrated.route : 'dashboard';
         return migrated;
       }
@@ -389,11 +390,21 @@
         independent: { input: '', selected: '', confidence: 2, hints: 0, answered: false, result: null },
         transfer: { task: newTaskForLesson(lessonId, true), input: '', selected: '', confidence: 2, hints: 0, answered: false, result: null },
         exampleReveal: {},
+        examplePredictions: {},
+        conceptStep: 0,
+        conceptAnswers: {},
+        conceptCompleted: {},
         reflectionDraft: '',
         exitDraft: ''
       };
     }
-    return state.lessonSessions[lessonId];
+    const session = state.lessonSessions[lessonId];
+    session.exampleReveal ||= {};
+    session.examplePredictions ||= {};
+    session.conceptStep = Number.isFinite(session.conceptStep) ? session.conceptStep : 0;
+    session.conceptAnswers ||= {};
+    session.conceptCompleted ||= {};
+    return session;
   }
 
   function taskValue(task, session) {
@@ -737,16 +748,56 @@
     </div>`;
   }
 
-  function renderLessonConcept(lesson) {
+  function renderLessonConcept(lesson, session) {
     markPhase(lesson.id, 'concept');
-    return `<div class="lesson-main">
-      <div class="concept-banner"><span>Konzeptphase</span><h2>Erst Bedeutung aufbauen, dann Verfahren automatisieren</h2><p>Lies aktiv: Formuliere nach jedem Abschnitt einen Satz, den du ohne Fachtext noch wiedergeben könntest.</p></div>
-      ${lesson.sections.map((section, index) => `<section class="card theory-section deep-theory">
-        <div class="theory-number">${String(index + 1).padStart(2, '0')}</div>
-        <div><h2>${section.title}</h2><p>${section.html}</p><button class="btn small concept-toggle" data-concept="${index}">Aktive Abruffrage anzeigen</button><div class="concept-recall" id="concept-${index}" hidden><strong>Ohne nach oben zu schauen:</strong><p>${conceptQuestion(lesson, index)}</p><textarea placeholder="Erkläre es mit eigenen Worten …"></textarea></div></div>
-      </section>`).join('')}
-      <div class="card connection-map"><h3>Verbindungen zu anderen Themen</h3><div class="connection-nodes">${lesson.competencies.map(code => `<span>${code}</span>`).join('<i>→</i>')}<i>→</i><span>${lesson.domain === 'Geometrie' ? 'Raumprobleme' : 'Funktionsanalyse'}</span></div><p>Mathematik bleibt besser im Gedächtnis, wenn neue Inhalte an bereits bestehende Ideen geknüpft werden.</p></div>
+    const total = lesson.sections.length;
+    const step = Math.max(0, Math.min(session.conceptStep || 0, total - 1));
+    const section = lesson.sections[step];
+    const answer = session.conceptAnswers[step] || '';
+    const completed = Boolean(session.conceptCompleted[step]);
+    const pct = Math.round(((step + (completed ? 1 : 0)) / total) * 100);
+    return `<div class="lesson-main concept-journey">
+      <div class="concept-banner"><span>GEFÜHRTER VERSTEHENSPFAD</span><h2>Ein Gedanke. Eine Entscheidung. Ein eigener Versuch.</h2><p>Du siehst bewusst nur einen Abschnitt. Erst nach einem aktiven Mini-Check geht es weiter.</p></div>
+      <div class="card journey-progress">
+        <div><strong>Schritt ${step + 1} von ${total}</strong><span>${pct}% dieses Verstehenspfads</span></div>
+        ${progress(pct)}
+        <div class="journey-dots">${lesson.sections.map((_, i) => `<button class="journey-dot ${i === step ? 'active' : ''} ${session.conceptCompleted[i] ? 'done' : ''}" data-concept-jump="${i}" title="Schritt ${i + 1}">${i + 1}</button>`).join('')}</div>
+      </div>
+      <section class="card theory-section focus-theory">
+        <div class="theory-number">${String(step + 1).padStart(2, '0')}</div>
+        <div class="focus-theory-content">
+          <div class="eyebrow">JETZT VERSTEHEN</div>
+          <h2>${section.title}</h2>
+          <div class="theory-reading">${section.html}</div>
+        </div>
+      </section>
+      <section class="card active-check ${completed ? 'completed' : ''}">
+        <div class="active-check-head"><div><div class="eyebrow">JETZT DU</div><h3>${conceptQuestion(lesson, step)}</h3></div><span>${completed ? '✓ erledigt' : 'Pflicht vor dem Weitergehen'}</span></div>
+        <p class="subtitle">Antworte kurz in eigenen Worten. Perfekte Formulierungen sind nicht nötig – entscheidend ist, dass du den Gedanken selbst abrufst.</p>
+        <textarea id="concept-answer" placeholder="Meine Erklärung oder mein Mini-Beispiel …">${esc(answer)}</textarea>
+        <div class="concept-thinking-tools">
+          <button class="btn small" id="concept-hint">Denkhilfe</button>
+          <span id="concept-hint-text" hidden>${conceptHint(lesson, step)}</span>
+        </div>
+        <div class="actions">
+          <button class="btn primary" id="concept-check">Antwort prüfen & speichern</button>
+          ${completed && step < total - 1 ? '<button class="btn" id="concept-next">Nächster Gedanke →</button>' : ''}
+          ${completed && step === total - 1 ? '<button class="btn" id="concept-finish">Weiter zu Beispielen →</button>' : ''}
+        </div>
+        <div id="concept-feedback">${completed ? '<div class="feedback correct"><strong>Aktiv verarbeitet.</strong><p>Du hast den Abschnitt nicht nur gelesen, sondern selbst rekonstruiert. Genau dieser Abruf macht ihn langfristig stabiler.</p></div>' : ''}</div>
+      </section>
+      <details class="card compact-reference"><summary>Alle Abschnitte als Nachschlageübersicht</summary><div>${lesson.sections.map((item, i) => `<article><b>${i + 1}. ${item.title}</b><p>${item.html}</p></article>`).join('')}</div></details>
     </div>`;
+  }
+
+  function conceptHint(lesson, index) {
+    const title = lesson.sections[index].title;
+    const hints = [
+      `Beginne mit: „${title} bedeutet im Kern, dass …“`,
+      'Nenne zuerst die mathematische Idee und danach ein sehr kleines Zahlen- oder Graphenbeispiel.',
+      'Frage dich: Was verändert sich, was bleibt gleich und woran würde ich die Idee in einer Aufgabe erkennen?'
+    ];
+    return hints[index % hints.length];
   }
 
   function conceptQuestion(lesson, index) {
@@ -795,7 +846,7 @@
         const shown = session.exampleReveal[exampleIndex] || 0;
         return `<article class="card worked-example">
           <div class="worked-head"><div><span>Beispiel ${exampleIndex + 1}</span><h2>${example.title}</h2></div><button class="btn small" data-restart-example="${exampleIndex}">Zurücksetzen</button></div>
-          <div class="prediction-box"><strong>Vorhersage:</strong> Was wäre dein nächster Schritt – und warum?</div>
+          <div class="prediction-box"><strong>Vorhersage vor dem Aufdecken</strong><textarea data-example-prediction="${exampleIndex}" placeholder="Ich würde als Nächstes …, weil …">${esc(session.examplePredictions[exampleIndex] || '')}</textarea><small>Ein kurzer echter Versuch reicht. Danach darfst du den nächsten Schritt aufdecken.</small></div>
           <div class="worked-steps">${example.steps.map((step, stepIndex) => `<div class="worked-step ${stepIndex < shown ? 'revealed' : ''}"><b>${stepIndex + 1}</b><div>${stepIndex < shown ? step : '<span class="hidden-step">Schritt noch verdeckt</span>'}</div></div>`).join('')}</div>
           ${shown < example.steps.length ? `<button class="btn primary" data-reveal-example="${exampleIndex}">Nächsten Schritt aufdecken</button>` : `<div class="insight"><strong>Strategischer Kern</strong><p>${example.insight}</p></div>`}
         </article>`;
@@ -867,7 +918,7 @@
     const lesson = getLesson(state.lesson) || DATA.lessons[0];
     const session = getLessonSession(lesson.id);
     let body;
-    if (state.lessonTab === 'concept') body = renderLessonConcept(lesson);
+    if (state.lessonTab === 'concept') body = renderLessonConcept(lesson, session);
     else if (state.lessonTab === 'deep') body = renderLessonDeep(lesson);
     else if (state.lessonTab === 'examples') body = renderLessonExamples(lesson, session);
     else if (state.lessonTab === 'guided') body = renderLessonGuided(lesson, session);
@@ -900,10 +951,35 @@
       };
     }
     if (state.lessonTab === 'concept') {
-      main.querySelectorAll('[data-concept]').forEach(button => button.onclick = () => {
-        const el = document.getElementById(`concept-${button.dataset.concept}`);
-        el.hidden = !el.hidden;
-        button.textContent = el.hidden ? 'Aktive Abruffrage anzeigen' : 'Abruffrage ausblenden';
+      const answer = document.getElementById('concept-answer');
+      if (answer) answer.oninput = event => { session.conceptAnswers[session.conceptStep || 0] = event.target.value; saveState(); };
+      document.getElementById('concept-hint')?.addEventListener('click', () => {
+        const hint = document.getElementById('concept-hint-text');
+        hint.hidden = !hint.hidden;
+      });
+      document.getElementById('concept-check')?.addEventListener('click', () => {
+        const step = session.conceptStep || 0;
+        const text = document.getElementById('concept-answer')?.value.trim() || '';
+        if (text.length < 18) return toast('Schreibe mindestens einen kurzen eigenen Gedanken oder ein Mini-Beispiel.');
+        session.conceptAnswers[step] = text;
+        session.conceptCompleted[step] = true;
+        state.xp += 6;
+        updateMastery(lesson.id, 'understanding', 2);
+        saveState();
+        render();
+      });
+      document.getElementById('concept-next')?.addEventListener('click', () => {
+        session.conceptStep = Math.min(lesson.sections.length - 1, (session.conceptStep || 0) + 1);
+        saveState(); render();
+      });
+      document.getElementById('concept-finish')?.addEventListener('click', () => {
+        markPhase(lesson.id, 'concept'); state.lessonTab = 'examples'; saveState(); render();
+      });
+      main.querySelectorAll('[data-concept-jump]').forEach(button => button.onclick = () => {
+        const target = Number(button.dataset.conceptJump);
+        const current = session.conceptStep || 0;
+        if (target > current && !session.conceptCompleted[current]) return toast('Schließe zuerst den aktuellen Denk-Check ab.');
+        session.conceptStep = target; saveState(); render();
       });
     }
     if (state.lessonTab === 'deep') {
@@ -941,9 +1017,16 @@
   }
 
   function bindExamples(lesson, session) {
+    main.querySelectorAll('[data-example-prediction]').forEach(input => input.oninput = event => {
+      session.examplePredictions[Number(input.dataset.examplePrediction)] = event.target.value;
+      saveState();
+    });
     main.querySelectorAll('[data-reveal-example]').forEach(button => button.onclick = () => {
       const i = Number(button.dataset.revealExample);
+      const prediction = (session.examplePredictions[i] || '').trim();
+      if (prediction.length < 8) return toast('Versuche zuerst kurz vorherzusagen, was als Nächstes passiert.');
       session.exampleReveal[i] = (session.exampleReveal[i] || 0) + 1;
+      session.examplePredictions[i] = '';
       if (session.exampleReveal[i] >= lesson.examples[i].steps.length) updateMastery(lesson.id, 'understanding', 2);
       saveState(); render();
     });
@@ -1550,7 +1633,7 @@
     if (!session?.active && !session?.submitted) {
       main.innerHTML = `<div class="page">
         ${pageHead('MISCHMISSIONEN', 'Mehrteilige Aufgaben statt isolierter Antwortboxen', 'Jede Fallstudie verbindet mehrere EF-Kompetenzen in einem gemeinsamen Kontext. Die Aufgaben sind synthetisch im NRW-Stil und keine kopierten Originalklausuren.')}
-        <div class="case-intro card"><div><span class="eyebrow">V1.0 · TRANSFER</span><h2>Ein Kontext, mehrere mathematische Entscheidungen</h2><p>Du musst Ergebnisse aus früheren Teilaufgaben weiterverwenden, Einheiten deuten, Modelle begrenzen und Methoden selbst auswählen.</p></div><div class="case-flow"><span>Verstehen</span><i>→</i><span>Rechnen</span><i>→</i><span>Vernetzen</span><i>→</i><span>Beurteilen</span></div></div>
+        <div class="case-intro card"><div><span class="eyebrow">V1.1 · TRANSFER</span><h2>Ein Kontext, mehrere mathematische Entscheidungen</h2><p>Du musst Ergebnisse aus früheren Teilaufgaben weiterverwenden, Einheiten deuten, Modelle begrenzen und Methoden selbst auswählen.</p></div><div class="case-flow"><span>Verstehen</span><i>→</i><span>Rechnen</span><i>→</i><span>Vernetzen</span><i>→</i><span>Beurteilen</span></div></div>
         <div class="grid grid-2 case-choice-grid">${(V6.caseCards || []).map(([id,title,desc,meta]) => `<button class="card case-choice" data-case="${id}"><span>${meta}</span><h2>${title}</h2><p>${desc}</p><strong>Mission starten →</strong></button>`).join('')}</div>
       </div>`;
       main.querySelectorAll('[data-case]').forEach(button => button.onclick = () => startCaseStudy(button.dataset.case));
@@ -1688,7 +1771,7 @@
       const cards = [...(V5.examCards || []), ...(V6.examCards || [])];
       main.innerHTML = `<div class="page">
         ${pageHead('KLAUSURZENTRUM 1.0', 'NRW-EF mit Teil A/B, Operatoren und fünfteiliger Rubrik', 'Ergebnis, Strategie, Zwischenschritte, Begründung und Kontrolle werden getrennt betrachtet. Die Bewertung bleibt eine transparente Lern-Näherung.')}
-        <div class="exam-blueprint-note"><strong>V1.0:</strong><span>${cards.length} Klausurformate · hilfsmittelfreie und hilfsmittelgestützte Teile · Operatorhilfen · Erwartungshorizont · Reparaturroute</span></div>
+        <div class="exam-blueprint-note"><strong>V1.1:</strong><span>${cards.length} Klausurformate · hilfsmittelfreie und hilfsmittelgestützte Teile · Operatorhilfen · Erwartungshorizont · Reparaturroute</span></div>
         <div class="grid grid-2 exam-choice-grid">${cards.map(([id,time,title,desc,count])=>`<button class="card exam-choice" data-exam="${id}"><span>${time}</span><h2>${title}</h2><p>${desc}</p><strong>${count}</strong></button>`).join('')}</div>
         ${state.examHistory?.length ? `<div class="card"><h3>Letzte Simulationen</h3>${state.examHistory.slice(0,5).map(item=>`<div class="history-row"><span>${formatDate(item.created,true)}</span><strong>${item.title}</strong><b>${item.percent}% · ${item.grade}</b></div>`).join('')}</div>`:''}
       </div>`;
@@ -1808,7 +1891,7 @@
   function renderErrors() {
     const unresolved=state.errors.filter(error=>!error.resolved);
     const groups={};unresolved.forEach(error=>{const key=error.diagnosis?.type||'Unklassifiziert';(groups[key]||(groups[key]=[])).push(error);});
-    main.innerHTML=`<div class="page">${pageHead('FEHLERLABOR','Fehler werden zerlegt und repariert','Nicht „falsch“ ist die Diagnose. V1.0 trennt Konzept, Methodenwahl, Algebra, Vorzeichen, Darstellung, Begründung, Interpretation, Kontrolle und Flüchtigkeit.',`<button class="btn danger" id="clear-resolved">Erledigte löschen</button>`)}
+    main.innerHTML=`<div class="page">${pageHead('FEHLERLABOR','Fehler werden zerlegt und repariert','Nicht „falsch“ ist die Diagnose. V1.1 trennt Konzept, Methodenwahl, Algebra, Vorzeichen, Darstellung, Begründung, Interpretation, Kontrolle und Flüchtigkeit.',`<button class="btn danger" id="clear-resolved">Erledigte löschen</button>`)}
       <div class="grid grid-4">${Object.entries(groups).slice(0,4).map(([type,items])=>`<div class="card stat-card"><div class="label">${esc(type)}</div><div class="value">${items.length}</div><div class="delta">offene Fehler</div></div>`).join('')||'<div class="card empty"><h3>Keine offenen Fehler</h3></div>'}</div>
       <div class="error-lab-list">${unresolved.map(error=>`<article class="card error-lab-card"><div class="error-head"><div>${pill(error.diagnosis?.type||'Fehler','danger')}<small>${formatDate(error.created,true)} · ${getLesson(error.lessonId)?.title||error.lessonId}</small></div><button class="btn small" data-resolve-error="${error.id}">Als repariert prüfen</button></div><h3>${error.prompt}</h3><div class="error-comparison"><div><span>Deine Antwort</span><strong>${esc(error.user)}</strong></div><div><span>Erwartet</span><strong>${esc(Array.isArray(error.answer)?error.answer.join(', '):error.answer)}</strong></div></div><div class="diagnosis-box"><strong>${esc(error.diagnosis?.title||'Fehlerursache')}</strong><p>${esc(error.diagnosis?.repair||'Vergleiche den ersten abweichenden Schritt.')}</p>${error.workAnalysis?`<div class="work-evidence"><span>Ebene: ${esc(error.workAnalysis.layer||'–')}</span><span>${error.workAnalysis.strategyHits||0} Strategie-Signale</span><span>${error.workAnalysis.equalities||0} Gleichheitszeichen</span><span>${error.workAnalysis.lines||0} Schritte</span></div>`:''}</div><details><summary>Vollständigen Lösungsweg öffnen</summary>${solutionHTML(error)}</details>${error.reflection?`<div class="saved-reflection"><strong>Deine Reflexion</strong><p>${esc(error.reflection)}</p></div>`:''}${(()=>{const repair=repairPhasesFor(error);return `<div class="repair-protocol"><strong>${repair.key}-Reparatur in drei Stufen</strong><ol>${repair.phases.map(p=>`<li>${esc(p)}</li>`).join('')}</ol></div>`})()}<div class="actions"><button class="btn primary" data-repair-task="${error.id}">Parallelaufgabe</button><button class="btn" data-repair-path="${error.id}">Rechenweg-Mission</button></div></article>`).join('')}</div>
     </div>`;
@@ -1922,7 +2005,7 @@
         <div class="settings-row"><div><strong>Als App installieren</strong><p class="subtitle">Auf unterstützten Geräten direkt zum Home-Bildschirm hinzufügen. Die App funktioniert nach dem ersten Laden offline.</p></div><button class="btn" id="install-app">Installieren</button></div>
         <div class="settings-row"><div><strong>Interne Systemprüfung</strong><p class="subtitle">Prüft Module, Kompetenzen, Generatoren, Klausurverweise und Mischmissionen direkt im Browser.</p>${audit?`<small class="audit-status ${audit.passed?'ok':'warn'}">${audit.passed?'✓ Bestanden':'! Hinweise'} · ${formatDate(audit.created,true)}${audit.issues?.length?` · ${audit.issues.map(esc).join(', ')}`:''}</small>`:''}</div><button class="btn" id="run-audit">Jetzt prüfen</button></div>
         <div class="settings-row"><div><strong>Lernstand zurücksetzen</strong><p class="subtitle">Entfernt Mastery, Fehler, XP und Klausuren dauerhaft auf diesem Gerät.</p></div><button class="btn danger" id="reset-all">Alles löschen</button></div>
-        <div class="settings-row"><div><strong>Technischer Status</strong><p class="subtitle">GitHub Flat · lokales MathJax · Offline-Cache · lokale Speicherung · 5-teilige Rechenweg-Rubrik · ${ENGINE.generatorCatalog.length} Generatoren · ${(V5.examCards?.length||0)+(V6.examCards?.length||0)} Klausurformate</p></div><div class="status-stack"><span class="pill green">V1.0 FINAL</span><span class="pill ${online?'green':'cyan'}">${online?'Online':'Offline bereit'}</span></div></div>
+        <div class="settings-row"><div><strong>Technischer Status</strong><p class="subtitle">GitHub Flat · lokales MathJax · Offline-Cache · lokale Speicherung · 5-teilige Rechenweg-Rubrik · ${ENGINE.generatorCatalog.length} Generatoren · ${(V5.examCards?.length||0)+(V6.examCards?.length||0)} Klausurformate</p></div><div class="status-stack"><span class="pill green">V1.1 ACTIVE LEARNING</span><span class="pill ${online?'green':'cyan'}">${online?'Online':'Offline bereit'}</span></div></div>
       </div>
     </div>`;
     document.getElementById('theme-toggle').onclick=()=>{state.theme=state.theme==='light'?'dark':'light';saveState();applyTheme();render();};
