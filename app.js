@@ -3,8 +3,13 @@
 
   const DATA = window.MATHFORGE_DATA;
   const V3 = window.MATHFORGE_V03_DATA;
+  const V5 = window.MATHFORGE_V05_DATA || { lessonExtensions: {}, visualLabs: {}, examCards: [] };
+  const V6 = window.MATHFORGE_V06_DATA || { examCards: [], caseCards: [], operatorGuide: {}, errorTaxonomy: {}, completionCriteria: [] };
   const ENGINE = window.MATHFORGE_ENGINE;
-  const STORAGE_KEY = 'mathforge_nrw_v04';
+  const STORAGE_KEY = 'mathforge_nrw_v10';
+  const LEGACY_KEY_V6 = 'mathforge_nrw_v06';
+  const LEGACY_KEY_V5 = 'mathforge_nrw_v05';
+  const LEGACY_KEY_V4 = 'mathforge_nrw_v04';
   const LEGACY_KEY = 'mathforge_nrw_v03';
   const LEGACY_KEY_V2 = 'mathforge_nrw_v02';
   const DIMENSIONS = [
@@ -16,7 +21,7 @@
   const PHASES = DATA.learningArchitecture?.phases || [];
 
   const defaultState = {
-    version: 4,
+    version: 10,
     xp: 0,
     level: 1,
     streak: 1,
@@ -40,18 +45,22 @@
     pathwaySession: null,
     curveSession: null,
     spaceSession: null,
+    visualSession: null,
+    caseSession: null,
     weeklyPlan: null,
     lessonSessions: {},
     theme: 'dark',
     route: 'dashboard',
     lesson: null,
     lessonTab: 'overview',
-    settings: { reducedMotion: false, strictMode: false }
+    settings: { reducedMotion: false, strictMode: false, focusMode: true }
   };
 
   let state = loadState();
   let toastTimer;
   let timerHandle;
+  let visualTypesetTimer;
+  let installPrompt = null;
 
   const main = document.getElementById('main');
   const nav = document.getElementById('nav');
@@ -76,10 +85,10 @@
     try {
       const current = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
       if (current) return deepMerge(defaultState, current);
-      const legacy = JSON.parse(localStorage.getItem(LEGACY_KEY) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY_V2) || 'null');
+      const legacy = JSON.parse(localStorage.getItem(LEGACY_KEY_V6) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY_V5) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY_V4) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY_V2) || 'null');
       if (legacy) {
         const migrated = deepMerge(defaultState, legacy);
-        migrated.version = 4;
+        migrated.version = 10;
         migrated.route = ['dashboard','learn','practiceHub','exam','progressHub','settings'].includes(migrated.route) ? migrated.route : 'dashboard';
         return migrated;
       }
@@ -145,21 +154,36 @@
 
   function applyTheme() {
     document.documentElement.classList.toggle('light', state.theme === 'light');
+    document.documentElement.classList.toggle('reduce-motion', Boolean(state.settings.reducedMotion));
   }
 
-  function route(to, extra = {}) {
+  function historyPayload() {
+    return { route: state.route, lesson: state.lesson, lessonTab: state.lessonTab };
+  }
+
+  function syncHistory(replace = false) {
+    const hash = `#${state.route || 'dashboard'}`;
+    const method = replace ? 'replaceState' : 'pushState';
+    try { history[method](historyPayload(), '', hash); } catch (error) { console.warn('Browser-Verlauf:', error); }
+  }
+
+  function route(to, extra = {}, options = {}) {
     state.route = to;
     Object.assign(state, extra);
     saveState();
+    if (!options.fromHistory) syncHistory(Boolean(options.replace));
     clearInterval(timerHandle);
     render();
-    document.querySelector('.sidebar')?.classList.remove('open');
+    const sidebar = document.querySelector('.sidebar');
+    sidebar?.classList.remove('open');
+    document.getElementById('menu-btn')?.setAttribute('aria-expanded', 'false');
     window.scrollTo({ top: 0, behavior: state.settings.reducedMotion ? 'auto' : 'smooth' });
+    setTimeout(() => main.focus({ preventScroll: true }), 0);
   }
 
   function navRender() {
     nav.innerHTML = navItems.map(([id, icon, label]) => `
-      <button class="nav-btn ${state.route === id ? 'active' : ''}" data-route="${id}">
+      <button class="nav-btn ${state.route === id ? 'active' : ''}" data-route="${id}" ${state.route === id ? 'aria-current="page"' : ''}>
         <span class="nav-icon">${icon}</span>${label}
       </button>
     `).join('');
@@ -315,7 +339,7 @@
 
     let diagnosis = null;
     if (!result.correct) {
-      diagnosis = ENGINE.classifyError(task, user);
+      diagnosis = result.diagnosisOverride || ENGINE.classifyError(task, user);
       state.errors.unshift({
         id: Date.now() + Math.random(),
         lessonId: task.lessonId,
@@ -328,7 +352,8 @@
         diagnosis,
         created: Date.now(),
         resolved: false,
-        repairAttempts: 0
+        repairAttempts: 0,
+        workAnalysis: result.workAnalysis || null
       });
       state.errors = state.errors.slice(0, 250);
     }
@@ -341,9 +366,13 @@
     return ids.length ? mean(ids.map(lessonMastery)) : 0;
   }
 
-  function generatorForLesson(lessonId) {
-    return ENGINE.generatorCatalog.find(item => item[1] === lessonId)?.[0]
-      || (lessonId.startsWith('G') ? 'vectorAdd' : lessonId === 'A13' ? 'extrema' : 'derivative');
+  function generatorForLesson(lessonId, advanced = false) {
+    const matches = ENGINE.generatorCatalog.filter(item => item[1] === lessonId);
+    if (matches.length) {
+      const pool = advanced && matches.length > 2 ? matches.slice(Math.floor(matches.length / 2)) : matches;
+      return pool[Math.floor(Math.random() * pool.length)][0];
+    }
+    return lessonId.startsWith('G') ? 'vectorAdd' : lessonId === 'A13' ? 'extrema' : 'derivative';
   }
 
   function newTaskForLesson(lessonId, transfer = false) {
@@ -578,6 +607,7 @@
         <button data-tool="curveLab"><span>⌇</span><strong>Kurven-Simulator</strong><small>f, f′ und f″ verbinden</small></button>
         <button data-tool="space"><span>◫</span><strong>3D-Vektorraum</strong><small>Geraden räumlich verstehen</small></button>
         <button data-tool="formulas"><span>ƒ</span><strong>Formelwerk</strong><small>Formeln mit Einsatzhinweisen</small></button>
+        <button data-tool="caseLab"><span>⌘</span><strong>Mischmissionen</strong><small>Mehrteilige NRW-Fallstudien</small></button>
         <button data-tool="generators"><span>∞</span><strong>Generator-Auswahl</strong><small>Aufgabentyp selbst festlegen</small></button>
         <button data-tool="diagnostic"><span>⌁</span><strong>Diagnose</strong><small>Grundlagenlücken lokalisieren</small></button>
       </div></details>
@@ -606,6 +636,7 @@
         <button data-progress-route="analytics"><span>↗</span><div><strong>Lernanalyse</strong><small>Dimensionen und Verlauf</small></div></button>
         <button data-progress-route="errors"><span>!</span><div><strong>Fehlerprofil</strong><small>Denkfehler und Reparaturen</small></div></button>
         <button data-progress-route="planner"><span>▦</span><div><strong>Wochenplan</strong><small>Adaptive Lernverteilung</small></div></button>
+        <button data-progress-route="audit"><span>✓</span><div><strong>Vollständigkeits-Audit</strong><small>Inhalt, Aufgaben, Prüfung und Visualisierung</small></div></button>
       </div>
     </div>`;
     document.getElementById('progress-next').onclick = () => openLesson(weak[0].id, 'overview');
@@ -667,11 +698,7 @@
   }
 
   function openLesson(id, tab = 'overview') {
-    state.lesson = id;
-    state.lessonTab = tab;
-    state.route = 'lesson';
-    saveState();
-    render();
+    route('lesson', { lesson: id, lessonTab: tab });
   }
 
   function lessonTabs(lesson) {
@@ -690,6 +717,7 @@
       <hr>
       <strong>NRW-Zuordnung</strong><div class="micro-tags">${lesson.competencies.map(code => `<span>${code}</span>`).join('')}</div>
       <strong>Fälliger Abruf</strong><p class="subtitle">${state.review[lesson.id] ? formatDate(state.review[lesson.id].due, true) : 'nach erster Übung geplant'}</p>
+      ${V5.visualLabs[lesson.id] ? `<button class="btn full primary" id="lesson-visual">${esc(V5.visualLabs[lesson.id].title)}</button>` : ''}
       <button class="btn full" id="lesson-infinite">Unendliche Aufgaben</button>
     </aside>`;
   }
@@ -733,6 +761,7 @@
   function renderLessonDeep(lesson) {
     markPhase(lesson.id, 'concept');
     const deep = V3.deepDives[lesson.id] || V3.genericDeepDive;
+    const ext = V5.lessonExtensions[lesson.id];
     const saved = state.reflections[`deep-${lesson.id}`] || [];
     return `<div class="lesson-main">
       <div class="concept-banner why-banner"><span>WARUM-LABOR</span><h2>Vom Verfahren zum tragfähigen mentalen Modell</h2><p>Hier wird nicht nur gezeigt, was du tun sollst. Du untersuchst, warum die Regeln gelten, wann sie versagen und wie du sie kontrollierst.</p></div>
@@ -742,6 +771,18 @@
       </div>
       <div class="card proof-card"><div class="eyebrow">BEWEISIDEE / HERLEITUNG</div><h3>Woher kommt die Regel?</h3><p>${deep.proofSketch}</p><div class="proof-warning"><strong>Wichtig:</strong> Eine Beweisidee ersetzt nicht das Rechnen. Sie sorgt dafür, dass du Regeln rekonstruieren kannst, statt sie nur auswendig zu kennen.</div></div>
       <div class="card"><h3>Fehler-Landkarte</h3><div class="mistake-map">${deep.mistakeMap.map(([name, repair]) => `<div><span>${esc(name)}</span><i>→</i><strong>${esc(repair)}</strong></div>`).join('')}</div></div>
+      ${ext ? `<section class="exam-depth-shell">
+        <div class="concept-banner exam-depth-banner"><span>KLAUSURTIEFE</span><h2>Methodenwahl, Spezialfälle und Punktefallen</h2><p>Dieser Bereich ergänzt das Grundverfahren um Entscheidungen, die in schwierigeren EF-Aufgaben den Unterschied machen.</p></div>
+        <div class="grid grid-2">
+          <article class="card depth-card"><h3>Entscheidungsweg</h3><ol class="depth-steps">${ext.decision.map((item,index)=>`<li><b>${index+1}</b><span>${esc(item)}</span></li>`).join('')}</ol></article>
+          <article class="card depth-card"><h3>Alternative Zugänge</h3><div class="depth-chips">${ext.alternative.map(item=>`<span>${esc(item)}</span>`).join('')}</div><p>Wähle nicht automatisch den längsten Weg. Begründe, warum dein Verfahren zur Struktur passt.</p></article>
+        </div>
+        <div class="grid grid-2">
+          <article class="card depth-card"><h3>Spezialfälle</h3><ul class="check-list">${ext.specialCases.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></article>
+          <article class="card depth-card danger-depth"><h3>Typische Punktefallen</h3><ul class="trap-list">${ext.traps.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></article>
+        </div>
+        <article class="card checklist-card"><div><div class="eyebrow">ABGABECHECK</div><h3>Bevor du in der Klausur weitergehst</h3></div><div class="exam-checklist">${ext.examChecklist.map(item=>`<label><input type="checkbox"><span>${esc(item)}</span></label>`).join('')}</div><button class="btn primary" id="depth-challenge">Schwere Parallelaufgabe erzeugen</button></article>
+      </section>` : ''}
       <div class="card explain-back"><h3>Teach-back: Könntest du es jemandem beibringen?</h3>${deep.explainBack.map((prompt, index) => `<label><span>${index + 1}. ${prompt}</span><textarea data-teachback="${index}" placeholder="Eigene Erklärung …"></textarea></label>`).join('')}<button class="btn primary" id="save-teachback">Teach-back abschließen</button></div>
     </div>`;
   }
@@ -848,6 +889,8 @@
 
     document.getElementById('lesson-back').onclick = () => route('learn');
     document.getElementById('lesson-infinite').onclick = () => startGenerator(generatorForLesson(lesson.id));
+    const visualButton = document.getElementById('lesson-visual');
+    if (visualButton) visualButton.onclick = () => startVisualLab(lesson.id);
     main.querySelectorAll('[data-lesson-tab]').forEach(button => button.onclick = () => { state.lessonTab = button.dataset.lessonTab; saveState(); render(); });
 
     if (state.lessonTab === 'overview') {
@@ -878,6 +921,8 @@
         state.reflections[key][index] = text;
         state.xp += 8; updateMastery(lesson.id, 'understanding', 2); saveState(); toast('Warum-Erklärung gespeichert · +8 XP');
       });
+      const depthChallenge = document.getElementById('depth-challenge');
+      if (depthChallenge) depthChallenge.onclick = () => startGenerator(generatorForLesson(lesson.id, true), 4);
       document.getElementById('save-teachback').onclick = () => {
         const values = [...main.querySelectorAll('[data-teachback]')].map(el => el.value.trim()).filter(Boolean);
         if (values.length < 2 || values.join(' ').length < 80) return toast('Beantworte mindestens zwei Teach-back-Fragen ausführlich.');
@@ -1022,9 +1067,9 @@
     return { attempts: items.length, accuracy: items.length ? Math.round(100 * items.filter(item => item.correct).length / items.length) : 0 };
   }
 
-  function startGenerator(id) {
+  function startGenerator(id, difficulty = 2) {
     state.generatorSession = {
-      active: true, generatorId: id, task: ENGINE.generate(id), input: '', selected: '', confidence: 2, hints: 0,
+      active: true, generatorId: id, difficulty, task: ENGINE.generate(id, difficulty), input: '', selected: '', confidence: 2, hints: 0,
       answered: false, result: null, streak: 0, correct: 0, total: 0
     };
     route('generators');
@@ -1246,7 +1291,7 @@
     if (!session?.active && !session?.completed) {
       main.innerHTML = `<div class="page">
         ${pageHead('RECHENWEG-INTELLIGENZ', 'Nicht nur das Ergebnis zählt', 'Jede Mission bewertet Strategie, mathematische Zwischenschritte, Regelbegründung, Ergebnis und unabhängige Kontrolle getrennt.')}
-        <div class="card rubric-manifest"><div><div class="eyebrow">NEUE V0.3-RUBRIK</div><h2>Eine falsche Endzahl kann trotzdem richtige Mathematik enthalten</h2><p>Die Engine vergibt Teilpunkte für korrekt erkannte Strukturen und Begründungen. Gleichzeitig zeigt sie den ersten Schritt, an dem dein Lösungsweg mathematisch abweicht.</p></div><div class="rubric-wheel"><span>Strategie</span><span>Rechnung</span><span>Warum</span><span>Kontrolle</span></div></div>
+        <div class="card rubric-manifest"><div><div class="eyebrow">RECHENWEG-RUBRIK</div><h2>Eine falsche Endzahl kann trotzdem richtige Mathematik enthalten</h2><p>Die Engine vergibt Teilpunkte für korrekt erkannte Strukturen und Begründungen. Gleichzeitig zeigt sie den ersten Schritt, an dem dein Lösungsweg mathematisch abweicht.</p></div><div class="rubric-wheel"><span>Strategie</span><span>Rechnung</span><span>Warum</span><span>Kontrolle</span></div></div>
         <div class="pathway-grid">${V3.pathwayCatalog.map(([id,title,domain,lessonId]) => `<button class="card pathway-choice" data-pathway="${id}"><span>${domain}</span><h2>${title}</h2><p>${getLesson(lessonId)?.summary || 'Mehrstufige Mission mit Teilpunkten und Fehlerdiagnose.'}</p><strong>${id === 'curve' ? '7' : id === 'line' ? '5' : '4–5'} bewertete Schritte →</strong></button>`).join('')}</div>
       </div>`;
       main.querySelectorAll('[data-pathway]').forEach(button => button.onclick = () => startPathway(button.dataset.pathway));
@@ -1359,7 +1404,238 @@
   function drawSpace(s){const canvas=document.getElementById('space-canvas');if(!canvas)return;const ctx=canvas.getContext('2d'),W=canvas.width,H=canvas.height;ctx.clearRect(0,0,W,H);ctx.fillStyle=document.documentElement.classList.contains('light')?'#f8fbff':'#071321';ctx.fillRect(0,0,W,H);const yaw=s.yaw*Math.PI/180,pitch=s.pitch*Math.PI/180,scale=s.zoom;const project=p=>{const x1=p[0]*Math.cos(yaw)-p[2]*Math.sin(yaw),z1=p[0]*Math.sin(yaw)+p[2]*Math.cos(yaw),y1=p[1]*Math.cos(pitch)-z1*Math.sin(pitch);return[W/2+x1*scale,H/2-y1*scale]};const line=(a,u,color)=>{ctx.strokeStyle=color;ctx.lineWidth=5;ctx.beginPath();for(let i=0;i<=160;i++){const t=-8+16*i/160,p=a.map((x,k)=>x+t*u[k]),q=project(p);i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);}ctx.stroke();};const axes=[[[0,0,0],[1,0,0],'#ff6b7a'],[[0,0,0],[0,1,0],'#7dff9d'],[[0,0,0],[0,0,1],'#5ebdff']];ctx.lineWidth=2;axes.forEach(([a,u,color])=>{ctx.strokeStyle=color;ctx.beginPath();const p1=project(u.map(x=>-7*x)),p2=project(u.map(x=>7*x));ctx.moveTo(...p1);ctx.lineTo(...p2);ctx.stroke();});line(s.scene.g.a,s.scene.g.u,'#46d7ff');line(s.scene.h.a,s.scene.h.u,'#ffb45e');if(s.scene.intersection){const q=project(s.scene.intersection);ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(q[0],q[1],8,0,Math.PI*2);ctx.fill();}}
 
   function buildWeeklyPlan(){const stats=DATA.lessons.map(l=>({id:l.id,title:l.title,mastery:lessonMastery(l.id)}));const due=DATA.lessons.filter(l=>(state.review[l.id]?.due||Infinity)<=Date.now()).map(l=>l.id);const errors=state.errors.filter(e=>!e.resolved).map(e=>e.lessonId);state.weeklyPlan=ENGINE.createWeeklyPlan(stats,due,errors);saveState();}
+
+  function startVisualLab(lessonId) {
+    const config = V5.visualLabs?.[lessonId];
+    if (!config) return toast('Für dieses Thema ist noch kein eigenes Visual-Labor nötig.');
+    if (config.type === 'line3d') return route('space');
+    state.visualSession = {
+      lessonId, type: config.type,
+      a: config.type === 'sine' ? 2 : 1,
+      b: 1, c: -1, h: 0, k: 0,
+      x0: -1, delta: 3,
+      ax: -3, ay: -1, bx: 3, by: 2
+    };
+    saveState();
+    route('visual');
+  }
+
+  function visualControl(id, label, min, max, step, value) {
+    return `<label class="visual-control"><span>${label}<strong id="visual-value-${id}">${String(value).replace('.', ',')}</strong></span><input type="range" min="${min}" max="${max}" step="${step}" value="${value}" data-visual-control="${id}"></label>`;
+  }
+
+  function visualControlsHTML(session) {
+    if (session.type === 'transform') return [
+      visualControl('a','Vertikaler Faktor a',-3,3,0.25,session.a),
+      visualControl('h','Horizontale Verschiebung h',-5,5,0.25,session.h),
+      visualControl('k','Vertikale Verschiebung k',-5,5,0.25,session.k)
+    ].join('');
+    if (session.type === 'sine') return [
+      visualControl('a','Amplitude a',-4,4,0.25,session.a),
+      visualControl('b','Frequenzfaktor b',0.25,4,0.25,session.b),
+      visualControl('h','Phasenverschiebung h',-3.14,3.14,0.1,session.h),
+      visualControl('k','Mittellinie k',-4,4,0.25,session.k)
+    ].join('');
+    if (session.type === 'secant' || session.type === 'tangent') return [
+      visualControl('x0','Ausgangsstelle x₀',-4,4,0.1,session.x0),
+      visualControl('delta','Abstand h',0.1,5,0.1,session.delta)
+    ].join('');
+    if (session.type === 'derivative') return [
+      visualControl('a','Koeffizient a bei x³',-2,2,0.25,session.a),
+      visualControl('b','Koeffizient b bei x²',-3,3,0.25,session.b),
+      visualControl('c','Koeffizient c bei x',-4,4,0.25,session.c),
+      visualControl('k','Konstante d',-4,4,0.25,session.k)
+    ].join('');
+    return [
+      visualControl('ax','Aₓ',-5,5,0.5,session.ax),visualControl('ay','Aᵧ',-5,5,0.5,session.ay),
+      visualControl('bx','Bₓ',-5,5,0.5,session.bx),visualControl('by','Bᵧ',-5,5,0.5,session.by)
+    ].join('');
+  }
+
+  function visualInsight(session) {
+    const n = value => Math.round(value * 100) / 100;
+    if (session.type === 'transform') {
+      return `<strong>Aktuelles Modell</strong><p>\\(f(x)=${n(session.a)}(x-${n(session.h)})^2+${n(session.k)}\\)</p><ul><li>Scheitel: S(${n(session.h)}|${n(session.k)})</li><li>${session.a < 0 ? 'Spiegelung an der x-Achse' : 'Öffnung nach oben'}</li><li>${Math.abs(session.a) > 1 ? 'schmaler/vertikal gestreckt' : Math.abs(session.a) < 1 ? 'breiter/vertikal gestaucht' : 'Grundbreite'}</li></ul>`;
+    }
+    if (session.type === 'sine') {
+      const period = 2 * Math.PI / Math.max(.01, Math.abs(session.b));
+      return `<strong>Aktuelles Modell</strong><p>\\(f(x)=${n(session.a)}\\sin(${n(session.b)}(x-${n(session.h)}))+${n(session.k)}\\)</p><ul><li>Amplitude: ${n(Math.abs(session.a))}</li><li>Periode: ${n(period)}</li><li>Mittellinie: y=${n(session.k)}</li></ul>`;
+    }
+    if (session.type === 'secant' || session.type === 'tangent') {
+      const f = x => .5*x*x-2, x1=session.x0, x2=x1+session.delta;
+      const sec=(f(x2)-f(x1))/(x2-x1), tan=x1;
+      return `<strong>Steigungen vergleichen</strong><ul><li>Sekantensteigung: ${n(sec)}</li><li>Tangentensteigung an x₀: ${n(tan)}</li><li>Je kleiner h, desto näher liegt die Sekantensteigung bei f′(x₀).</li>${session.type==='tangent'?`<li>Normalensteigung: ${tan ? n(-1/tan) : 'nicht als y=mx+b darstellbar'}</li>`:''}</ul>`;
+    }
+    if (session.type === 'derivative') {
+      return `<strong>Funktionsfamilie</strong><p>\\(f(x)=${n(session.a)}x^3+${n(session.b)}x^2+${n(session.c)}x+${n(session.k)}\\)</p><p>\\(f'(x)=${n(3*session.a)}x^2+${n(2*session.b)}x+${n(session.c)}\\), \\(f''(x)=${n(6*session.a)}x+${n(2*session.b)}\\)</p>`;
+    }
+    const dx=session.bx-session.ax,dy=session.by-session.ay,len=Math.hypot(dx,dy);
+    return `<strong>Vektorbeziehung</strong><p>\\(\\overrightarrow{AB}=(${n(dx)}|${n(dy)})\\)</p><ul><li>Länge: ${n(len)}</li><li>Start A(${n(session.ax)}|${n(session.ay)})</li><li>Ziel B(${n(session.bx)}|${n(session.by)})</li></ul>`;
+  }
+
+  function renderVisualLab() {
+    const session = state.visualSession;
+    const config = session && V5.visualLabs?.[session.lessonId];
+    if (!session || !config) return route('practiceHub');
+    main.innerHTML = `<div class="page visual-page">
+      ${pageHead('VISUAL-LABOR', esc(config.title), esc(config.subtitle), `<button class="btn" id="visual-back">Zur Masterclass</button>`)}
+      <div class="visual-layout">
+        <section class="card visual-stage"><canvas id="visual-canvas" aria-label="Interaktive mathematische Visualisierung"></canvas><div class="visual-legend" id="visual-legend"></div></section>
+        <aside class="card visual-panel"><h3>Parameter verändern</h3><p>Bewege die Regler langsam und formuliere vor jeder Änderung eine Vorhersage.</p>${visualControlsHTML(session)}<div class="visual-insight" id="visual-insight">${visualInsight(session)}</div><button class="btn primary full" id="visual-challenge">Passende Aufgabe erzeugen</button></aside>
+      </div>
+      <section class="card visual-reflection"><div><div class="eyebrow">PREDICT → OBSERVE → EXPLAIN</div><h3>Was hat sich verändert – und warum?</h3></div><textarea id="visual-reflection" placeholder="Meine Vorhersage, Beobachtung und mathematische Erklärung …"></textarea><button class="btn" id="visual-save">Erkenntnis speichern</button></section>
+    </div>`;
+    document.getElementById('visual-back').onclick = () => openLesson(session.lessonId, 'deep');
+    document.getElementById('visual-challenge').onclick = () => startGenerator(generatorForLesson(session.lessonId, true), 4);
+    document.getElementById('visual-save').onclick = () => {
+      const text=document.getElementById('visual-reflection').value.trim();
+      if(text.length<30)return toast('Beschreibe Beobachtung und Begründung etwas genauer.');
+      const key=`visual-${session.lessonId}`;(state.reflections[key]||(state.reflections[key]=[])).unshift({text,created:Date.now()});
+      state.xp+=12;updateMastery(session.lessonId,'understanding',3);saveState();toast('Visual-Erklärung gespeichert · +12 XP');
+    };
+    main.querySelectorAll('[data-visual-control]').forEach(input => input.oninput = event => {
+      const key=event.target.dataset.visualControl; session[key]=Number(event.target.value);
+      const label=document.getElementById(`visual-value-${key}`);if(label)label.textContent=String(session[key]).replace('.',',');
+      document.getElementById('visual-insight').innerHTML=visualInsight(session);saveState();clearTimeout(visualTypesetTimer);visualTypesetTimer=setTimeout(typeset,120);drawVisualLab(session);
+    });
+    requestAnimationFrame(()=>drawVisualLab(session));
+  }
+
+  function drawVisualLab(session) {
+    const canvas=document.getElementById('visual-canvas');if(!canvas)return;
+    const rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1);
+    canvas.width=Math.max(320,Math.round(rect.width*dpr));canvas.height=Math.max(320,Math.round(rect.height*dpr));
+    const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);
+    const w=canvas.width/dpr,h=canvas.height/dpr;
+    const styles=getComputedStyle(document.documentElement), grid=styles.getPropertyValue('--line').trim()||'rgba(255,255,255,.12)', text=styles.getPropertyValue('--muted').trim()||'#9fb0c5';
+    ctx.clearRect(0,0,w,h);ctx.fillStyle='rgba(6,15,28,.38)';ctx.fillRect(0,0,w,h);
+    const xmin=-7,xmax=7,ymin=-7,ymax=7, sx=x=>w*(x-xmin)/(xmax-xmin), sy=y=>h-h*(y-ymin)/(ymax-ymin);
+    ctx.lineWidth=1;ctx.strokeStyle=grid;
+    for(let x=Math.ceil(xmin);x<=xmax;x++){ctx.beginPath();ctx.moveTo(sx(x),0);ctx.lineTo(sx(x),h);ctx.stroke();}
+    for(let y=Math.ceil(ymin);y<=ymax;y++){ctx.beginPath();ctx.moveTo(0,sy(y));ctx.lineTo(w,sy(y));ctx.stroke();}
+    ctx.strokeStyle=text;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(0,sy(0));ctx.lineTo(w,sy(0));ctx.moveTo(sx(0),0);ctx.lineTo(sx(0),h);ctx.stroke();
+    ctx.fillStyle=text;ctx.font='12px system-ui';for(let x=-6;x<=6;x+=2)ctx.fillText(String(x),sx(x)+3,sy(0)+14);
+    const drawFn=(fn,color,width=2.5)=>{ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();let open=false;for(let px=0;px<=w;px+=2){const x=xmin+(xmax-xmin)*px/w,y=fn(x);if(!Number.isFinite(y)||Math.abs(y)>50){open=false;continue;}const py=sy(y);if(!open){ctx.moveTo(px,py);open=true}else ctx.lineTo(px,py);}ctx.stroke();};
+    const point=(x,y,color,label)=>{ctx.fillStyle=color;ctx.beginPath();ctx.arc(sx(x),sy(y),5,0,Math.PI*2);ctx.fill();ctx.fillText(label,sx(x)+8,sy(y)-8);};
+    const legend=[];
+    if(session.type==='transform'){drawFn(x=>session.a*(x-session.h)**2+session.k,'#6ee7ff',3);drawFn(x=>x*x,'#8b9bb2',1.5);point(session.h,session.k,'#ffd166','S');legend.push('cyan: f','grau: Grundfunktion x²');}
+    else if(session.type==='sine'){drawFn(x=>session.a*Math.sin(session.b*(x-session.h))+session.k,'#6ee7ff',3);ctx.setLineDash([7,5]);drawFn(()=>session.k,'#ffd166',1.5);ctx.setLineDash([]);legend.push('cyan: Sinusmodell','gelb: Mittellinie');}
+    else if(session.type==='secant'||session.type==='tangent'){
+      const f=x=>.5*x*x-2,x1=session.x0,x2=x1+session.delta,y1=f(x1),y2=f(x2),m=(y2-y1)/(x2-x1);
+      drawFn(f,'#6ee7ff',3);drawFn(x=>m*(x-x1)+y1,'#ffd166',2);point(x1,y1,'#ff7a90','P');point(x2,y2,'#ff7a90','Q');legend.push('cyan: f','gelb: Sekante');
+      if(session.type==='tangent'){const mt=x1;drawFn(x=>mt*(x-x1)+y1,'#78f0a7',2.2);if(Math.abs(mt)>.05)drawFn(x=>(-1/mt)*(x-x1)+y1,'#c8a8ff',1.8);legend.push('grün: Tangente','violett: Normale');}
+    }
+    else if(session.type==='derivative'){
+      const f=x=>session.a*x**3+session.b*x*x+session.c*x+session.k,fp=x=>3*session.a*x*x+2*session.b*x+session.c,fpp=x=>6*session.a*x+2*session.b;
+      drawFn(f,'#6ee7ff',3);drawFn(fp,'#ffd166',2.2);drawFn(fpp,'#78f0a7',2);legend.push('cyan: f','gelb: f′','grün: f″');
+    } else {
+      const ax=session.ax,ay=session.ay,bx=session.bx,by=session.by;ctx.strokeStyle='#6ee7ff';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(sx(ax),sy(ay));ctx.lineTo(sx(bx),sy(by));ctx.stroke();
+      const angle=Math.atan2(sy(by)-sy(ay),sx(bx)-sx(ax));ctx.fillStyle='#6ee7ff';ctx.beginPath();ctx.moveTo(sx(bx),sy(by));ctx.lineTo(sx(bx)-14*Math.cos(angle-.5),sy(by)-14*Math.sin(angle-.5));ctx.lineTo(sx(bx)-14*Math.cos(angle+.5),sy(by)-14*Math.sin(angle+.5));ctx.closePath();ctx.fill();point(ax,ay,'#ffd166','A');point(bx,by,'#ff7a90','B');legend.push('cyan: Verbindungsvektor AB');
+    }
+    const legendEl=document.getElementById('visual-legend');if(legendEl)legendEl.innerHTML=legend.map(item=>`<span>${item}</span>`).join('');
+  }
+
   function renderPlanner(){if(!state.weeklyPlan)buildWeeklyPlan();const plan=state.weeklyPlan;const all=plan.days.flatMap(d=>d.blocks),done=all.filter(b=>b.completed).length,minutes=all.filter(b=>!b.completed).reduce((s,b)=>s+b.minutes,0);main.innerHTML=`<div class="page">${pageHead('ADAPTIVER WOCHENPLAN','Sieben Tage, die Erinnern statt Vergessen organisieren','Der Plan kombiniert fälligen Abruf, schwächste Mastery, offene Fehler und gemischten Transfer.',`<button class="btn" id="regenerate-plan">Neu berechnen</button>`)}<div class="grid grid-3"><div class="card stat-card"><div class="label">Fortschritt</div><div class="value">${done}/${all.length}</div></div><div class="card stat-card"><div class="label">Offene Lernzeit</div><div class="value">${minutes}</div><div class="delta">Minuten</div></div><div class="card stat-card"><div class="label">Prinzip</div><div class="value small-value">Abruf</div><div class="delta">vor erneutem Lesen</div></div></div><div class="plan-principles">${plan.principles.map(p=>`<span>${p}</span>`).join('')}</div><div class="week-grid">${plan.days.map(day=>`<section class="card day-card"><div class="day-head"><div><span>TAG ${day.day+1}</span><h2>${day.label}</h2></div><strong>${day.blocks.reduce((s,b)=>s+b.minutes,0)} Min.</strong></div>${day.blocks.map(block=>`<div class="plan-block ${block.completed?'done':''}"><button data-plan-toggle="${block.id}">${block.completed?'✓':'○'}</button><div><span>${block.kind} · ${block.minutes} Min.</span><strong>${esc(block.title)}</strong></div><button class="plan-start" data-plan-start="${block.id}">Start</button></div>`).join('')}</section>`).join('')}</div></div>`;document.getElementById('regenerate-plan').onclick=()=>{buildWeeklyPlan();render();};main.querySelectorAll('[data-plan-toggle]').forEach(button=>button.onclick=()=>{const block=all.find(b=>b.id===button.dataset.planToggle);block.completed=!block.completed;if(block.completed){state.xp+=5;state.totalMinutes+=block.minutes;}saveState();render();});main.querySelectorAll('[data-plan-start]').forEach(button=>button.onclick=()=>{const block=all.find(b=>b.id===button.dataset.planStart);if(block.kind==='Mix')return route('practice');if(block.kind==='Kontrolle'&&state.errors.some(e=>!e.resolved&&e.lessonId===block.lessonId))return route('errors');openLesson(block.lessonId||todayRecommendation().id,block.kind==='Abruf'?'retain':'overview');});}
+
+
+  function startCaseStudy(type) {
+    const caseStudy = ENGINE.createCaseStudy(type);
+    state.caseSession = { active: true, submitted: false, caseStudy, index: 0, answers: {}, started: Date.now(), points: 0 };
+    saveState();
+    route('caseLab');
+  }
+
+  function renderCaseLab() {
+    const session = state.caseSession;
+    if (!session?.active && !session?.submitted) {
+      main.innerHTML = `<div class="page">
+        ${pageHead('MISCHMISSIONEN', 'Mehrteilige Aufgaben statt isolierter Antwortboxen', 'Jede Fallstudie verbindet mehrere EF-Kompetenzen in einem gemeinsamen Kontext. Die Aufgaben sind synthetisch im NRW-Stil und keine kopierten Originalklausuren.')}
+        <div class="case-intro card"><div><span class="eyebrow">V1.0 · TRANSFER</span><h2>Ein Kontext, mehrere mathematische Entscheidungen</h2><p>Du musst Ergebnisse aus früheren Teilaufgaben weiterverwenden, Einheiten deuten, Modelle begrenzen und Methoden selbst auswählen.</p></div><div class="case-flow"><span>Verstehen</span><i>→</i><span>Rechnen</span><i>→</i><span>Vernetzen</span><i>→</i><span>Beurteilen</span></div></div>
+        <div class="grid grid-2 case-choice-grid">${(V6.caseCards || []).map(([id,title,desc,meta]) => `<button class="card case-choice" data-case="${id}"><span>${meta}</span><h2>${title}</h2><p>${desc}</p><strong>Mission starten →</strong></button>`).join('')}</div>
+      </div>`;
+      main.querySelectorAll('[data-case]').forEach(button => button.onclick = () => startCaseStudy(button.dataset.case));
+      return;
+    }
+    if (session.submitted) return renderCaseResult(session);
+    const cs = session.caseStudy, task = cs.tasks[session.index];
+    const answer = session.answers[task.id] || { input:'', selected:'', work:'', confidence:2, hints:0, answered:false, score:null };
+    session.answers[task.id] = answer;
+    const op = V6.operatorGuide?.[task.operator || 'bestimmen'];
+    main.innerHTML = `<div class="page focus-page case-active">
+      ${pageHead('MISCHMISSION', cs.title, cs.subtitle, `<button class="btn" id="case-exit">Mission verlassen</button>`)}
+      <div class="case-context card"><div><span>FALLSTUDIE</span><h2>${cs.context}</h2></div><div class="case-lessons">${(cs.lessonIds||[]).map(id=>pill(getLesson(id)?.title||id,'cyan')).join('')}</div></div>
+      <div class="case-stepper">${cs.tasks.map((t,i)=>`<button class="${i===session.index?'active':''} ${session.answers[t.id]?.answered?'done':''}" data-case-index="${i}"><b>${i+1}</b><span>${t.title}</span></button>`).join('')}</div>
+      <div class="card exam-task case-task">
+        <div class="lesson-meta">${pill(`Teilaufgabe ${session.index+1}/${cs.tasks.length}`,'cyan')}${pill(`${task.points||4} Punkte`)}${pill(op?.label||'Bestimmen','green')}</div>
+        <h2>${task.prompt}</h2>
+        ${op ? `<details class="operator-help"><summary>Was verlangt „${op.label}“?</summary><p>${op.meaning}</p><ul>${op.checklist.map(x=>`<li>${x}</li>`).join('')}</ul></details>` : ''}
+        ${taskInputHTML(task, answer, 'caseanswer')}
+        ${task.type !== 'choice' ? `<label class="exam-work"><span>Rechenweg / Begründung</span><textarea id="case-work" placeholder="Methode, Zwischenschritte, Begründung und Kontrolle …" ${answer.answered?'disabled':''}>${esc(answer.work||'')}</textarea></label>` : ''}
+        ${!answer.answered ? `<div class="question-actions"><div class="hint-dots">${(task.hints||[]).map((_,i)=>`<i class="${i<answer.hints?'active':''}"></i>`).join('')}</div><div class="actions"><button class="btn" id="case-hint" ${(task.hints||[]).length<=answer.hints?'disabled':''}>Gestuften Hinweis</button><button class="btn primary" id="case-check">Teilaufgabe prüfen</button></div></div>` : ''}
+        ${answer.hints ? `<div class="hint-stack">${(task.hints||[]).slice(0,answer.hints).map((h,i)=>`<div class="hint"><strong>Hinweis ${i+1}</strong>${h}</div>`).join('')}</div>` : ''}
+        ${answer.answered ? `<div class="case-score ${answer.score.correct?'correct':'partial'}"><div><strong>${answer.score.points}/${task.points||4} Punkte</strong><span>${answer.score.correct?'Ergebnis korrekt':'Teilkompetenzen erkannt'}</span></div><div class="mini-rubric"><span>Ergebnis ${answer.score.answerPoints||0}</span><span>Strategie ${answer.score.strategyPoints||0}</span><span>Weg ${answer.score.processPoints||0}</span><span>Deutung ${answer.score.reasoningPoints||0}</span></div></div>${solutionHTML(task)}<div class="actions end-actions"><button class="btn primary" id="case-next">${session.index+1<cs.tasks.length?'Nächste Teilaufgabe →':'Mission auswerten'}</button></div>` : ''}
+      </div>
+    </div>`;
+    main.querySelectorAll('[data-caseanswer-option]').forEach(button => button.onclick = () => { answer.selected=button.dataset.caseanswerOption; saveState(); render(); });
+    const input=document.getElementById('caseanswer-input'); if(input) input.oninput=e=>answer.input=e.target.value;
+    const work=document.getElementById('case-work'); if(work) work.oninput=e=>answer.work=e.target.value;
+    main.querySelectorAll('[data-case-index]').forEach(button=>button.onclick=()=>{if(input)answer.input=input.value;if(work)answer.work=work.value;session.index=Number(button.dataset.caseIndex);saveState();render();});
+    document.getElementById('case-hint')?.addEventListener('click',()=>{answer.hints=Math.min((task.hints||[]).length,answer.hints+1);saveState();render();});
+    document.getElementById('case-check')?.addEventListener('click',()=>{
+      if(input)answer.input=input.value;if(work)answer.work=work.value;
+      const value=task.type==='choice'?answer.selected:answer.input;
+      if(!String(value||'').trim())return toast('Trage zuerst eine Antwort ein.');
+      const enhanced=(task.type==='choice'||task.answerKind==='choice')
+        ? {...task,answerPoints:task.points||4,strategyPoints:0,processPoints:0,reasoningPoints:0,controlPoints:0}
+        : {...task,answerPoints:2,strategyPoints:.5,processPoints:.5,reasoningPoints:1,controlPoints:0};
+      const score=ENGINE.scoreExamTaskV6(enhanced,value,answer.work||'');
+      answer.score=score;answer.answered=true;
+      recordAttempt(task,value,{correct:score.correct,diagnosisOverride:score.diagnosis,workAnalysis:score.workAnalysis},`case:${cs.type}`,answer.confidence||2);
+      saveState();render();
+    });
+    document.getElementById('case-next')?.addEventListener('click',()=>{
+      if(session.index+1<cs.tasks.length){session.index++;saveState();render();}
+      else {session.active=false;session.submitted=true;session.finished=Date.now();session.points=cs.tasks.reduce((sum,t)=>sum+(session.answers[t.id]?.score?.points||0),0);saveState();render();}
+    });
+    document.getElementById('case-exit').onclick=()=>{state.caseSession=null;saveState();render();};
+  }
+
+  function renderCaseResult(session) {
+    const cs=session.caseStudy,total=cs.tasks.reduce((s,t)=>s+(t.points||4),0),percent=Math.round(100*(session.points||0)/total);
+    const weak=cs.tasks.filter(t=>(session.answers[t.id]?.score?.points||0)<(t.points||4)*0.65);
+    main.innerHTML=`<div class="page">${pageHead('MISSIONS-AUSWERTUNG',cs.title,'Zusammenhang, Rechenweg und Sachdeutung werden gemeinsam ausgewertet.')}
+      <div class="card result-hero"><div class="result-orb">${percent}%</div><div><div class="eyebrow">TRANSFERERGEBNIS</div><h1>${Math.round((session.points||0)*2)/2}/${total} Punkte</h1><p>${weak.length?`${weak.length} Teilaufgaben benötigen noch eine Reparaturrunde.`:'Die Fallstudie ist tragfähig gelöst. Wiederhole sie zeitversetzt mit neuen Zahlen.'}</p></div></div>
+      <div class="card"><h3>Teilaufgaben</h3>${cs.tasks.map((t,i)=>{const a=session.answers[t.id]||{},score=a.score||{};return`<details class="exam-detail ${score.correct?'correct':score.points?'partial':'wrong'}"><summary><b>${i+1}</b><span>${t.title}</span><strong>${score.points||0}/${t.points||4}</strong></summary><p><strong>Antwort:</strong> ${esc(t.type==='choice'?a.selected:a.input||'–')}</p><p><strong>Rechenweg:</strong> ${esc(a.work||'–')}</p>${score.diagnosis?`<div class="diagnosis-box"><strong>${esc(score.diagnosis.type)}</strong><p>${esc(score.diagnosis.repair)}</p></div>`:''}${solutionHTML(t)}</details>`}).join('')}</div>
+      <div class="card repair-priority"><h3>Nächste Lernschritte</h3>${weak.length?weak.map((t,i)=>`<button data-case-repair="${t.lessonId}"><b>${i+1}</b><span>${getLesson(t.lessonId)?.title||t.title}</span><strong>Vertiefen →</strong></button>`).join(''):'<p>Starte eine andere Fallstudie oder nutze eine Generalprobe.</p>'}</div>
+      <div class="actions center"><button class="btn primary" id="case-again">Neue Fallstudie</button><button class="btn" id="case-repeat">Mit neuen Zahlen wiederholen</button></div></div>`;
+    document.getElementById('case-again').onclick=()=>{state.caseSession=null;saveState();render();};
+    document.getElementById('case-repeat').onclick=()=>startCaseStudy(cs.type);
+    main.querySelectorAll('[data-case-repair]').forEach(button=>button.onclick=()=>openLesson(button.dataset.caseRepair,'deep'));
+  }
+
+  function renderAudit() {
+    const allBlueprints=[...Object.values(window.MATHFORGE_V03_DATA?.examBlueprints||{}),...Object.values(V6.examBlueprints||{})];
+    const genMap={};ENGINE.generatorCatalog.forEach(([id,lesson])=>{(genMap[lesson]||(genMap[lesson]=[])).push(id);});
+    const examCountFor=lessonId=>allBlueprints.reduce((sum,bp)=>{
+      const ids=bp.generatorIds||bp.sections?.flatMap(s=>s.generatorIds)||[];
+      return sum+ids.filter(id=>ENGINE.generatorCatalog.find(x=>x[0]===id)?.[1]===lessonId).length;
+    },0);
+    const rows=DATA.lessons.map(lesson=>{
+      const generators=genMap[lesson.id]?.length||0,exams=examCountFor(lesson.id),visual=Boolean(V5.visualLabs?.[lesson.id]),path=Boolean(pathwayTypeForLesson(lesson.id));
+      const content=Boolean(lesson.masterclass&&lesson.theory?.length&&lesson.examples?.length),practice=generators>0,transfer=generators>=2||lesson.questions?.length>=3,assessment=exams>0,retention=true;
+      const visualRequired=['A4','A5','A6','A7','A8','A9','A11','A12','A13','G1','G2','G4','G5'].includes(lesson.id);
+      const visualScore=!visualRequired||visual;
+      const checks=[content,practice,transfer,assessment,retention,visualScore];
+      return {lesson,generators,exams,visual,path,coverage:Math.round(100*checks.filter(Boolean).length/checks.length)};
+    });
+    const average=Math.round(mean(rows.map(r=>r.coverage)));
+    main.innerHTML=`<div class="page">${pageHead('VOLLSTÄNDIGKEITS-AUDIT','Was ist in der App wirklich abgedeckt?','Das Audit trennt App-Abdeckung von deinem persönlichen Lernstand. Es prüft Inhalt, Verfahren, Transfer, Prüfung, Langzeitlernen und fachlich sinnvolle Visualisierung.')}
+      <div class="grid grid-3"><div class="card stat-card"><div class="label">App-Abdeckung</div><div class="value">${average}%</div><div class="delta">über 24 Masterclasses</div></div><div class="card stat-card"><div class="label">Generatorfamilien</div><div class="value">${ENGINE.generatorCatalog.length}</div><div class="delta">adaptive Varianten</div></div><div class="card stat-card"><div class="label">Klausurformate</div><div class="value">${(V5.examCards?.length||0)+(V6.examCards?.length||0)}</div><div class="delta">inkl. Teil A/B</div></div></div>
+      <div class="card audit-legend"><h3>Prüfkriterien</h3><div class="grid grid-3">${(V6.completionCriteria||[]).map(([id,title,desc])=>`<div><strong>${title}</strong><p>${desc}</p></div>`).join('')}</div></div>
+      <div class="audit-table"><div class="audit-row audit-head"><span>Modul</span><span>Generatoren</span><span>Klausurbezug</span><span>Visual</span><span>Rechenweg</span><span>Abdeckung</span></div>${rows.map(r=>`<button class="audit-row" data-audit-lesson="${r.lesson.id}"><span><b>${r.lesson.id}</b>${r.lesson.title}</span><span>${r.generators}</span><span>${r.exams}</span><span>${r.visual?'✓':'–'}</span><span>${r.path?'✓':'indirekt'}</span><span><strong>${r.coverage}%</strong>${progress(r.coverage)}</span></button>`).join('')}</div>
+      <div class="card honest-limit"><h3>Was dieses Audit nicht behauptet</h3><p>100 % App-Abdeckung bedeutet, dass jedes EF-Thema durch Lerninhalt und Training vertreten ist. Es bedeutet nicht, dass jede denkbare Schulbuchaufgabe oder jeder individuelle Lösungsweg bereits automatisch verstanden wird. Freie Beweise und ungewöhnliche, aber korrekte Lösungswege müssen deshalb weiterhin mit mathematischem Urteil betrachtet werden.</p></div></div>`;
+    main.querySelectorAll('[data-audit-lesson]').forEach(button=>button.onclick=()=>openLesson(button.dataset.auditLesson,'deep'));
+  }
 
   function renderDiagnostic() {
     if (!state.diagnostic?.active) {
@@ -1373,7 +1649,7 @@
         saveState(); render();
       };
       main.querySelectorAll('[data-repair-lesson]').forEach(button => {
-        button.onclick = () => route(`lesson/${button.dataset.repairLesson}`);
+        button.onclick = () => openLesson(button.dataset.repairLesson, 'overview');
       });
       return;
     }
@@ -1409,15 +1685,10 @@
   function renderExam() {
     const session = state.examSession;
     if (!session?.active && !session?.submitted) {
-      const cards = [
-        ['basis','60 Minuten','Grundlagen-Check','Algebra, Funktionen, Steigung, erste Analysis und Vektorbasics.','10 Aufgaben'],
-        ['analysis','90 Minuten','Analysis-Klausur EF','Funktionen, Änderungsraten, Ableitungen, Tangenten, Extrema, Wendepunkte und Begründungen.','11 Aufgaben'],
-        ['geometry','90 Minuten','Vektorgeometrie-Klausur','Vektoroperationen, Figurennachweise, Geraden, Punktproben, Lagebeziehungen und LGS.','9 Aufgaben'],
-        ['full','120 Minuten','Große EF-NRW-Simulation','Gemischte Analysis und Vektorgeometrie mit Rechenweg-Rubrik und automatisierten Teilpunkten.','13 Aufgaben']
-      ];
+      const cards = [...(V5.examCards || []), ...(V6.examCards || [])];
       main.innerHTML = `<div class="page">
-        ${pageHead('KLAUSURZENTRUM 3.0', 'NRW-EF mit Teilpunkten und Erwartungshorizont', 'Neben dem Ergebnis werden Rechenweg und Begründung bewertet. Die Teilpunkte sind eine transparente automatisierte Näherung – kein Ersatz für die endgültige Lehrkraftbewertung.')}
-        <div class="exam-blueprint-note"><strong>V0.3 neu:</strong><span>Ergebnis-Punkte + Begründungs-Punkte + Teilkomponenten + thematische Reparaturroute</span></div>
+        ${pageHead('KLAUSURZENTRUM 1.0', 'NRW-EF mit Teil A/B, Operatoren und fünfteiliger Rubrik', 'Ergebnis, Strategie, Zwischenschritte, Begründung und Kontrolle werden getrennt betrachtet. Die Bewertung bleibt eine transparente Lern-Näherung.')}
+        <div class="exam-blueprint-note"><strong>V1.0:</strong><span>${cards.length} Klausurformate · hilfsmittelfreie und hilfsmittelgestützte Teile · Operatorhilfen · Erwartungshorizont · Reparaturroute</span></div>
         <div class="grid grid-2 exam-choice-grid">${cards.map(([id,time,title,desc,count])=>`<button class="card exam-choice" data-exam="${id}"><span>${time}</span><h2>${title}</h2><p>${desc}</p><strong>${count}</strong></button>`).join('')}</div>
         ${state.examHistory?.length ? `<div class="card"><h3>Letzte Simulationen</h3>${state.examHistory.slice(0,5).map(item=>`<div class="history-row"><span>${formatDate(item.created,true)}</span><strong>${item.title}</strong><b>${item.percent}% · ${item.grade}</b></div>`).join('')}</div>`:''}
       </div>`;
@@ -1432,7 +1703,7 @@
   }
 
   function startExam(level) {
-    const exam = ENGINE.createExamV3 ? ENGINE.createExamV3(level) : ENGINE.createExam(level);
+    const exam = ENGINE.createExamV6 ? ENGINE.createExamV6(level) : (ENGINE.createExamV3 ? ENGINE.createExamV3(level) : ENGINE.createExam(level));
     state.examSession = {active:true,submitted:false,exam,index:0,answers:{},started:Date.now(),finished:null};
     saveState(); route('exam');
   }
@@ -1443,11 +1714,16 @@
     session.answers[task.id]=answer;
     const elapsed=(Date.now()-session.started)/1000;
     const remaining=exam.minutes*60-elapsed;
-    main.innerHTML=`<div class="page exam-page">${pageHead('KLAUSURMODUS',exam.title,'Keine Hinweise und keine Lösungen. Zeige deinen Rechenweg, damit Teilpunkte bewertet werden können.',`<div class="exam-timer" id="exam-timer">${formatDuration(remaining)}</div><button class="btn danger" id="submit-exam">Abgeben</button>`)}
+    const op=V6.operatorGuide?.[task.operator||'bestimmen'];
+    const currentSection=exam.sections?.find(s=>s.id===task.sectionId);
+    main.innerHTML=`<div class="page exam-page ${state.settings.focusMode?'exam-focus-enabled':''}">${pageHead('KLAUSURMODUS',exam.title,'Keine Hinweise und keine Lösungen. Nutze die Operator-Checkliste und zeige deinen Rechenweg für Teilpunkte.',`<button class="btn ghost" id="exam-focus">${state.settings.focusMode?'Fokus aktiv':'Fokus aus'}</button><div class="exam-timer" id="exam-timer">${formatDuration(remaining)}</div><button class="btn danger" id="submit-exam">Abgeben</button>`)}
+      ${exam.sections?.length?`<div class="exam-sections">${exam.sections.map(section=>`<div class="${section.id===task.sectionId?'active':''}"><span>${section.title}</span><small>${section.aid}</small></div>`).join('')}</div>`:''}
       <div class="exam-progress-line">${progress(100*(session.index+1)/exam.tasks.length)}<span>Aufgabe ${session.index+1}/${exam.tasks.length}</span></div>
-      <div class="exam-nav">${exam.tasks.map((t,i)=>`<button class="${i===session.index?'active':''} ${session.answers[t.id]?.input||session.answers[t.id]?.selected?'filled':''}" data-exam-index="${i}">${i+1}</button>`).join('')}</div>
-      <div class="card exam-task"><div class="lesson-meta">${pill(`Aufgabe ${task.examNumber}`,'cyan')}${pill(`${task.points} Punkte`)}${pill(`NRW ${task.skill}`,'green')}</div><h2>${task.prompt}</h2>${taskInputHTML(task,answer,'examanswer')}
-      ${task.type!=='choice'?`<label class="exam-work"><span>Rechenweg / Begründung <b>${task.reasoningPoints||1} Punkt</b></span><textarea id="exam-work" placeholder="Notiere Formelwahl, Zwischenschritte, Regeln und Kontrolle …">${esc(answer.work||'')}</textarea></label>`:''}
+      <div class="exam-nav">${exam.tasks.map((t,i)=>`<button class="${i===session.index?'active':''} ${session.answers[t.id]?.input||session.answers[t.id]?.selected?'filled':''}" data-exam-index="${i}" title="${esc(t.sectionTitle||'')}">${i+1}</button>`).join('')}</div>
+      <div class="card exam-task"><div class="lesson-meta">${pill(`Aufgabe ${task.examNumber}`,'cyan')}${pill(`${task.points} Punkte`)}${pill(op?.label||task.operator||'Bestimmen','green')}${currentSection?pill(currentSection.aid):''}</div><h2>${task.prompt}</h2>
+      ${op?`<details class="operator-help"><summary>Operator „${op.label}“ richtig erfüllen</summary><p>${op.meaning}</p><ul>${op.checklist.map(item=>`<li>${item}</li>`).join('')}</ul></details>`:''}
+      ${taskInputHTML(task,answer,'examanswer')}
+      ${task.type!=='choice'?`<label class="exam-work"><span>Rechenweg / Begründung</span><textarea id="exam-work" placeholder="1. Strategie nennen · 2. Zwischenschritte · 3. Begründung/Deutung · 4. Kontrolle …">${esc(answer.work||'')}</textarea></label>`:''}
       <div class="rubric-preview">${(task.rubric||[]).map(item=>`<span>${item.label}: <strong>${item.points} P</strong></span>`).join('')}</div>
       <div class="exam-actions"><button class="btn" id="exam-prev" ${session.index===0?'disabled':''}>← Zurück</button><button class="btn primary" id="exam-next">${session.index+1<exam.tasks.length?'Speichern & weiter →':'Zur Abgabe'}</button></div></div>
     </div>`;
@@ -1459,6 +1735,7 @@
     document.getElementById('exam-prev').onclick=()=>{persist();session.index--;saveState();render();};
     document.getElementById('exam-next').onclick=()=>{persist();if(session.index+1<exam.tasks.length){session.index++;saveState();render();}else confirmSubmitExam(session);};
     document.getElementById('submit-exam').onclick=()=>{persist();confirmSubmitExam(session);};
+    document.getElementById('exam-focus').onclick=()=>{state.settings.focusMode=!state.settings.focusMode;saveState();render();};
     clearInterval(timerHandle);timerHandle=setInterval(()=>{const el=document.getElementById('exam-timer');if(!el)return;const rem=exam.minutes*60-(Date.now()-session.started)/1000;el.textContent=formatDuration(rem);if(rem<=0){clearInterval(timerHandle);submitExam(session);}},1000);
   }
 
@@ -1472,25 +1749,31 @@
     clearInterval(timerHandle);let points=0;
     session.exam.tasks.forEach(task=>{
       const a=session.answers[task.id]||{};const value=task.type==='choice'?a.selected:a.input;
-      const score=ENGINE.scoreExamTask ? ENGINE.scoreExamTask(task,value,a.work||'') : {...ENGINE.checkAnswer(task,value),points:ENGINE.checkAnswer(task,value).correct?task.points:0,maxPoints:task.points};
+      const score=ENGINE.scoreExamTaskV6 ? ENGINE.scoreExamTaskV6(task,value,a.work||'') : (ENGINE.scoreExamTask ? ENGINE.scoreExamTask(task,value,a.work||'') : {...ENGINE.checkAnswer(task,value),points:ENGINE.checkAnswer(task,value).correct?task.points:0,maxPoints:task.points});
       a.score=score;a.result={correct:score.correct};a.answered=true;points+=score.points;
-      recordAttempt(task,value,{correct:score.correct},'exam-v3',3);
+      recordAttempt(task,value,{correct:score.correct,diagnosisOverride:score.diagnosis,workAnalysis:score.workAnalysis},'exam-v6',3);
     });
     session.points=Math.round(points*2)/2;session.finished=Date.now();session.active=false;session.submitted=true;
     const percent=Math.round(100*session.points/session.exam.totalPoints),grade=gradeForPercent(percent);
-    state.examHistory.unshift({id:session.exam.id,title:session.exam.title,points:session.points,total:session.exam.totalPoints,percent,grade,created:session.finished,duration:session.finished-session.started});
-    state.examHistory=state.examHistory.slice(0,20);saveState();render();
+    state.examHistory.unshift({id:session.exam.id,title:session.exam.title,points:session.points,total:session.exam.totalPoints,percent,grade,created:session.finished,duration:session.finished-session.started,version:10,sections:session.exam.sections||[]});
+    state.examHistory=state.examHistory.slice(0,30);saveState();render();
   }
 
   function gradeForPercent(p){if(p>=95)return'1+';if(p>=90)return'1';if(p>=85)return'1−';if(p>=80)return'2+';if(p>=75)return'2';if(p>=70)return'2−';if(p>=65)return'3+';if(p>=60)return'3';if(p>=55)return'3−';if(p>=50)return'4+';if(p>=45)return'4';if(p>=39)return'4−';if(p>=30)return'5';return'6';}
 
   function examResultHTML(session){
-    const exam=session.exam,p=Math.round(100*(session.points||0)/exam.totalPoints);const weak=exam.tasks.filter(t=>(session.answers[t.id]?.score?.points||0)<t.points*0.6);
-    const domainScores={};exam.tasks.forEach(t=>{const d=getLesson(t.lessonId)?.domain||'Grundlagen';if(!domainScores[d])domainScores[d]={got:0,max:0};domainScores[d].got+=session.answers[t.id]?.score?.points||0;domainScores[d].max+=t.points;});
+    const exam=session.exam,p=Math.round(100*(session.points||0)/exam.totalPoints);const weak=exam.tasks.filter(t=>(session.answers[t.id]?.score?.points||0)<t.points*0.65);
+    const domainScores={},sectionScores={};
+    exam.tasks.forEach(t=>{const got=session.answers[t.id]?.score?.points||0;const d=getLesson(t.lessonId)?.domain||'Grundlagen';if(!domainScores[d])domainScores[d]={got:0,max:0};domainScores[d].got+=got;domainScores[d].max+=t.points;const sec=t.sectionTitle||'Gesamt';if(!sectionScores[sec])sectionScores[sec]={got:0,max:0,aid:t.aid||''};sectionScores[sec].got+=got;sectionScores[sec].max+=t.points;});
     const duration=Math.round((session.finished-session.started)/60000);
-    return `<div class="exam-result"><div class="card result-hero"><div class="result-orb">${p}%</div><div><div class="eyebrow">ERGEBNIS MIT TEILPUNKTEN</div><h1>${session.points||0} / ${exam.totalPoints} Punkte · Note ca. ${gradeForPercent(p)}</h1><p>Bearbeitungszeit: ${duration} Min. Die automatische Note und Teilpunktvergabe sind eine Lern-Näherung; der detaillierte Erwartungshorizont zeigt, wie sie zustande kommt.</p></div></div>
+    const rubricTotals={answer:[0,0],strategy:[0,0],process:[0,0],reasoning:[0,0],control:[0,0]};
+    exam.tasks.forEach(t=>{const sc=session.answers[t.id]?.score||{};rubricTotals.answer[0]+=sc.answerPoints||0;rubricTotals.answer[1]+=t.answerPoints||0;rubricTotals.strategy[0]+=sc.strategyPoints||0;rubricTotals.strategy[1]+=t.strategyPoints||0;rubricTotals.process[0]+=sc.processPoints||0;rubricTotals.process[1]+=t.processPoints||0;rubricTotals.reasoning[0]+=sc.reasoningPoints||0;rubricTotals.reasoning[1]+=t.reasoningPoints||0;rubricTotals.control[0]+=sc.controlPoints||0;rubricTotals.control[1]+=t.controlPoints||0;});
+    const labels={answer:'Ergebnis',strategy:'Strategie',process:'Rechenweg',reasoning:'Begründung',control:'Kontrolle'};
+    return `<div class="exam-result"><div class="card result-hero"><div class="result-orb">${p}%</div><div><div class="eyebrow">ERGEBNIS MIT FÜNFTEILIGER RUBRIK</div><h1>${session.points||0} / ${exam.totalPoints} Punkte · Note ca. ${gradeForPercent(p)}</h1><p>Bearbeitungszeit: ${duration} Min. Die automatische Note ist eine Lern-Näherung. Die Einzelrubrik macht sichtbar, ob Punkte am Ergebnis, an der Methode oder an der Darstellung verloren gingen.</p></div></div>
+      ${Object.keys(sectionScores).length>1?`<div class="grid grid-3">${Object.entries(sectionScores).map(([name,v])=>`<div class="card dimension-card"><span>${name}</span><strong>${Math.round(100*v.got/v.max)}%</strong>${progress(100*v.got/v.max)}<small>${Math.round(v.got*2)/2}/${v.max} P · ${v.aid}</small></div>`).join('')}</div>`:''}
+      <div class="card rubric-overview"><h3>Wo entstehen deine Punkte?</h3><div class="grid grid-5">${Object.entries(rubricTotals).filter(([,v])=>v[1]>0).map(([key,v])=>`<div><span>${labels[key]}</span><strong>${Math.round(v[0]*2)/2}/${v[1]}</strong>${progress(100*v[0]/v[1])}</div>`).join('')}</div></div>
       <div class="grid grid-3">${Object.entries(domainScores).map(([name,v])=>`<div class="card dimension-card"><span>${name}</span><strong>${Math.round(100*v.got/v.max)}%</strong>${progress(100*v.got/v.max)}<small>${Math.round(v.got*2)/2}/${v.max} P</small></div>`).join('')}</div>
-      <div class="card"><h3>Erwartungshorizont pro Aufgabe</h3>${exam.tasks.map(t=>{const a=session.answers[t.id]||{},score=a.score||{};return`<details class="exam-detail ${score.correct?'correct':score.points?'partial':'wrong'}"><summary><b>${t.examNumber}</b><span>${t.title}</span><strong>${score.points||0}/${t.points}</strong></summary><div class="exam-rubric-detail"><div><span>Ergebnis / Objekt</span><strong>${score.answerPoints||0}/${t.answerPoints||Math.max(1,t.points-1)}</strong></div><div><span>Rechenweg / Begründung</span><strong>${score.reasoningPoints||0}/${t.reasoningPoints||1}</strong></div></div><p><strong>Antwort:</strong> ${esc(t.type==='choice'?a.selected:a.input||'–')}</p><p><strong>Rechenweg:</strong> ${esc(a.work||'–')}</p><div class="diagnosis-box"><strong>${esc(score.diagnosis?.title||score.answerNote||'Auswertung')}</strong><p>${esc(score.diagnosis?.repair||score.reasoningNote||'')}</p></div>${solutionHTML(t)}</details>`}).join('')}</div>
+      <div class="card"><h3>Erwartungshorizont pro Aufgabe</h3>${exam.tasks.map(t=>{const a=session.answers[t.id]||{},score=a.score||{},analysis=score.workAnalysis||{};return`<details class="exam-detail ${score.correct?'correct':score.points?'partial':'wrong'}"><summary><b>${t.examNumber}</b><span>${t.title}</span><strong>${score.points||0}/${t.points}</strong></summary><div class="exam-rubric-detail five"><div><span>Ergebnis</span><strong>${score.answerPoints||0}/${t.answerPoints||0}</strong></div><div><span>Strategie</span><strong>${score.strategyPoints||0}/${t.strategyPoints||0}</strong></div><div><span>Zwischenschritte</span><strong>${score.processPoints||0}/${t.processPoints||0}</strong></div><div><span>Begründung</span><strong>${score.reasoningPoints||0}/${t.reasoningPoints||0}</strong></div><div><span>Kontrolle</span><strong>${score.controlPoints||0}/${t.controlPoints||0}</strong></div></div><p><strong>Operator:</strong> ${esc(V6.operatorGuide?.[t.operator]?.label||t.operator||'Bestimmen')} · <strong>Abschnitt:</strong> ${esc(t.sectionTitle||'Gesamt')}</p><p><strong>Antwort:</strong> ${esc(t.type==='choice'?a.selected:a.input||'–')}</p><p><strong>Rechenweg:</strong> ${esc(a.work||'–')}</p><div class="work-evidence"><span>${analysis.strategyHits||0} Strategie-Signale</span><span>${analysis.equalities||0} Gleichheitszeichen</span><span>${analysis.lines||0} sichtbare Schritte</span><span>Diagnoseebene: ${esc(analysis.layer||'–')}</span></div><div class="diagnosis-box"><strong>${esc(score.diagnosis?.title||score.answerNote||'Auswertung')}</strong><p>${esc(score.diagnosis?.repair||score.reasoningNote||'')}</p></div>${solutionHTML(t)}</details>`}).join('')}</div>
       <div class="card repair-priority"><h3>Priorisierte Reparaturroute</h3>${weak.length?weak.map((t,i)=>`<button data-exam-lesson="${t.lessonId}"><b>${i+1}</b><span>${getLesson(t.lessonId)?.title||t.title}</span><strong>${session.answers[t.id]?.score?.points||0}/${t.points} P</strong></button>`).join(''):'<p>Alle Aufgaben liegen mindestens im tragfähigen Bereich. Nutze jetzt zeitversetzten Abruf.</p>'}</div>
       <div class="actions center"><button class="btn primary" id="new-exam">Neue Klausur</button><button class="btn" id="exam-repair">${weak.length} Bereiche reparieren</button></div></div>`;
   }
@@ -1525,9 +1808,9 @@
   function renderErrors() {
     const unresolved=state.errors.filter(error=>!error.resolved);
     const groups={};unresolved.forEach(error=>{const key=error.diagnosis?.type||'Unklassifiziert';(groups[key]||(groups[key]=[])).push(error);});
-    main.innerHTML=`<div class="page">${pageHead('FEHLERLABOR','Fehler werden zerlegt und repariert','Nicht „falsch“ ist die Diagnose. Entscheidend ist, ob der Fehler aus Konzept, Verfahren, Algebra, Koordinaten, Vollständigkeit oder Flüchtigkeit entstand.',`<button class="btn danger" id="clear-resolved">Erledigte löschen</button>`)}
+    main.innerHTML=`<div class="page">${pageHead('FEHLERLABOR','Fehler werden zerlegt und repariert','Nicht „falsch“ ist die Diagnose. V1.0 trennt Konzept, Methodenwahl, Algebra, Vorzeichen, Darstellung, Begründung, Interpretation, Kontrolle und Flüchtigkeit.',`<button class="btn danger" id="clear-resolved">Erledigte löschen</button>`)}
       <div class="grid grid-4">${Object.entries(groups).slice(0,4).map(([type,items])=>`<div class="card stat-card"><div class="label">${esc(type)}</div><div class="value">${items.length}</div><div class="delta">offene Fehler</div></div>`).join('')||'<div class="card empty"><h3>Keine offenen Fehler</h3></div>'}</div>
-      <div class="error-lab-list">${unresolved.map(error=>`<article class="card error-lab-card"><div class="error-head"><div>${pill(error.diagnosis?.type||'Fehler','danger')}<small>${formatDate(error.created,true)} · ${getLesson(error.lessonId)?.title||error.lessonId}</small></div><button class="btn small" data-resolve-error="${error.id}">Als repariert prüfen</button></div><h3>${error.prompt}</h3><div class="error-comparison"><div><span>Deine Antwort</span><strong>${esc(error.user)}</strong></div><div><span>Erwartet</span><strong>${esc(Array.isArray(error.answer)?error.answer.join(', '):error.answer)}</strong></div></div><div class="diagnosis-box"><strong>${esc(error.diagnosis?.title||'Fehlerursache')}</strong><p>${esc(error.diagnosis?.repair||'Vergleiche den ersten abweichenden Schritt.')}</p></div><details><summary>Vollständigen Lösungsweg öffnen</summary>${solutionHTML(error)}</details>${error.reflection?`<div class="saved-reflection"><strong>Deine Reflexion</strong><p>${esc(error.reflection)}</p></div>`:''}${(()=>{const repair=repairPhasesFor(error);return `<div class="repair-protocol"><strong>${repair.key}-Reparatur in drei Stufen</strong><ol>${repair.phases.map(p=>`<li>${esc(p)}</li>`).join('')}</ol></div>`})()}<div class="actions"><button class="btn primary" data-repair-task="${error.id}">Parallelaufgabe</button><button class="btn" data-repair-path="${error.id}">Rechenweg-Mission</button></div></article>`).join('')}</div>
+      <div class="error-lab-list">${unresolved.map(error=>`<article class="card error-lab-card"><div class="error-head"><div>${pill(error.diagnosis?.type||'Fehler','danger')}<small>${formatDate(error.created,true)} · ${getLesson(error.lessonId)?.title||error.lessonId}</small></div><button class="btn small" data-resolve-error="${error.id}">Als repariert prüfen</button></div><h3>${error.prompt}</h3><div class="error-comparison"><div><span>Deine Antwort</span><strong>${esc(error.user)}</strong></div><div><span>Erwartet</span><strong>${esc(Array.isArray(error.answer)?error.answer.join(', '):error.answer)}</strong></div></div><div class="diagnosis-box"><strong>${esc(error.diagnosis?.title||'Fehlerursache')}</strong><p>${esc(error.diagnosis?.repair||'Vergleiche den ersten abweichenden Schritt.')}</p>${error.workAnalysis?`<div class="work-evidence"><span>Ebene: ${esc(error.workAnalysis.layer||'–')}</span><span>${error.workAnalysis.strategyHits||0} Strategie-Signale</span><span>${error.workAnalysis.equalities||0} Gleichheitszeichen</span><span>${error.workAnalysis.lines||0} Schritte</span></div>`:''}</div><details><summary>Vollständigen Lösungsweg öffnen</summary>${solutionHTML(error)}</details>${error.reflection?`<div class="saved-reflection"><strong>Deine Reflexion</strong><p>${esc(error.reflection)}</p></div>`:''}${(()=>{const repair=repairPhasesFor(error);return `<div class="repair-protocol"><strong>${repair.key}-Reparatur in drei Stufen</strong><ol>${repair.phases.map(p=>`<li>${esc(p)}</li>`).join('')}</ol></div>`})()}<div class="actions"><button class="btn primary" data-repair-task="${error.id}">Parallelaufgabe</button><button class="btn" data-repair-path="${error.id}">Rechenweg-Mission</button></div></article>`).join('')}</div>
     </div>`;
     main.querySelectorAll('[data-resolve-error]').forEach(button=>button.onclick=()=>{const error=state.errors.find(e=>String(e.id)===button.dataset.resolveError);if(error){error.resolved=true;state.xp+=10;saveState();render();}});
     main.querySelectorAll('[data-repair-task]').forEach(button=>button.onclick=()=>{const error=state.errors.find(e=>String(e.id)===button.dataset.repairTask);if(!error)return;const gen=generatorForLesson(error.lessonId);startGenerator(gen);});
@@ -1586,13 +1869,68 @@
   function drawGraph(){const canvas=document.getElementById('graph-canvas');if(!canvas)return;const ctx=canvas.getContext('2d'),type=document.getElementById('gtype').value;const a=+document.getElementById('a').value,b=+document.getElementById('b').value,c=+document.getElementById('c').value,d=+document.getElementById('d').value;const W=canvas.width,H=canvas.height,xmin=-10,xmax=10,ymin=-10,ymax=10;const X=x=>(x-xmin)/(xmax-xmin)*W,Y=y=>H-(y-ymin)/(ymax-ymin)*H;ctx.clearRect(0,0,W,H);ctx.fillStyle=document.documentElement.classList.contains('light')?'#f8fbff':'#071321';ctx.fillRect(0,0,W,H);ctx.strokeStyle='rgba(130,165,205,.13)';ctx.lineWidth=1;for(let i=-10;i<=10;i++){ctx.beginPath();ctx.moveTo(X(i),0);ctx.lineTo(X(i),H);ctx.stroke();ctx.beginPath();ctx.moveTo(0,Y(i));ctx.lineTo(W,Y(i));ctx.stroke();}ctx.strokeStyle='rgba(230,244,255,.55)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(X(0),0);ctx.lineTo(X(0),H);ctx.moveTo(0,Y(0));ctx.lineTo(W,Y(0));ctx.stroke();let f,fp,info;if(type==='poly'){f=x=>a*x**3+b*x**2+c*x+d;fp=x=>3*a*x**2+2*b*x+c;info=`f(x) = ${a}x³ + ${b}x² + ${c}x + ${d}. Die Ableitung ist quadratisch.`;}else if(type==='quad'){f=x=>a*(x-c)**2+d;fp=x=>2*a*(x-c);info=`Scheitel S(${c}|${d}), Öffnungsfaktor a=${a}. Nullstelle der Ableitung bei x=${c}.`;}else{f=x=>a*Math.sin(b*(x-c))+d;fp=x=>a*b*Math.cos(b*(x-c));info=`Amplitude ${Math.abs(a)}, Periode ${b?(2*Math.PI/Math.abs(b)).toFixed(2):'nicht periodisch'}, Mittellinie y=${d}.`;}plot(ctx,f,'#46d7ff',X,Y,xmin,xmax);if(document.getElementById('show-der').checked)plot(ctx,fp,'#ffb45e',X,Y,xmin,xmax);document.getElementById('graph-info').textContent=info;}
   function plot(ctx,fn,color,X,Y,xmin,xmax){ctx.strokeStyle=color;ctx.lineWidth=3;ctx.beginPath();let started=false;for(let px=0;px<=1000;px++){const x=xmin+(xmax-xmin)*px/1000,y=fn(x);if(!Number.isFinite(y)||Math.abs(y)>100){started=false;continue;}const xx=X(x),yy=Y(y);if(!started){ctx.moveTo(xx,yy);started=true;}else ctx.lineTo(xx,yy);}ctx.stroke();}
 
+  function answerForAudit(task) {
+    if (Array.isArray(task.answer)) {
+      if (task.answerKind === 'point' || task.answerKind === 'vector') return `(${task.answer.join('|')})`;
+      return task.answer.join(';');
+    }
+    return String(task.answer ?? '');
+  }
+
+  function runIntegrityAudit() {
+    const issues = [];
+    const lessonIds = DATA.lessons.map(lesson => lesson.id);
+    if (new Set(lessonIds).size !== lessonIds.length) issues.push('Doppelte Masterclass-ID');
+    const questionIds = DATA.lessons.flatMap(lesson => (lesson.questions || []).map(question => question.id));
+    if (new Set(questionIds).size !== questionIds.length) issues.push('Doppelte Aufgaben-ID');
+    const allCompetencies = [...DATA.competencies.analysis, ...DATA.competencies.geometry].map(item => item[0]);
+    allCompetencies.forEach(code => { if (!(DATA.compToLessons[code] || []).length) issues.push(`Kompetenz ${code} ohne Modul`); });
+    const generatorIds = ENGINE.generatorCatalog.map(item => item[0]);
+    if (new Set(generatorIds).size !== generatorIds.length) issues.push('Doppelte Generator-ID');
+    for (const id of generatorIds) {
+      try {
+        const generated = ENGINE.generate(id, 4);
+        if (!generated?.prompt || generated.answer === undefined) issues.push(`Generator ${id} unvollständig`);
+        else if (!ENGINE.checkAnswer(generated, answerForAudit(generated)).correct) issues.push(`Generator ${id} erkennt Eigenlösung nicht`);
+      } catch (error) { issues.push(`Generator ${id}: ${error.message}`); }
+    }
+    const blueprints = [...Object.values(V3.examBlueprints || {}), ...Object.values(V5.examBlueprints || {}), ...Object.values(V6.examBlueprints || {})];
+    blueprints.forEach(blueprint => {
+      const ids = blueprint.generatorIds || blueprint.sections?.flatMap(section => section.generatorIds) || [];
+      ids.forEach(id => { if (!generatorIds.includes(id)) issues.push(`Klausur verweist auf unbekannten Generator ${id}`); });
+    });
+    try {
+      (V6.caseCards || []).forEach(([id]) => {
+        const study = ENGINE.createCaseStudy(id);
+        if (!study?.tasks?.length) issues.push(`Mischmission ${id} ohne Aufgaben`);
+      });
+    } catch (error) { issues.push(`Mischmission: ${error.message}`); }
+    state.settings.lastAudit = { created: Date.now(), passed: issues.length === 0, issues: issues.slice(0, 12) };
+    saveState();
+    toast(issues.length ? `${issues.length} Prüfhinweise gefunden` : 'Systemprüfung bestanden · keine Inkonsistenz gefunden');
+    render();
+  }
+
   function renderSettings() {
+    const audit = state.settings.lastAudit;
+    const online = navigator.onLine;
     main.innerHTML=`<div class="page">${pageHead('SYSTEM','Einstellungen','Alle Daten bleiben lokal in diesem Browser. Keine Anmeldung, Cloud oder Konten.')}
-      <div class="card"><div class="settings-row"><div><strong>Helles Design</strong><p class="subtitle">Für helle Umgebung.</p></div><div class="toggle ${state.theme==='light'?'on':''}" id="theme-toggle"><i></i></div></div><div class="settings-row"><div><strong>Bewegungen reduzieren</strong><p class="subtitle">Weniger Scroll- und Übergangsanimation.</p></div><div class="toggle ${state.settings.reducedMotion?'on':''}" id="motion-toggle"><i></i></div></div><div class="settings-row"><div><strong>Lernstand zurücksetzen</strong><p class="subtitle">Entfernt Mastery, Fehler, XP und Klausuren dauerhaft auf diesem Gerät.</p></div><button class="btn danger" id="reset-all">Alles löschen</button></div><div class="settings-row"><div><strong>Technischer Status</strong><p class="subtitle">GitHub Flat · kein npm · lokale Speicherung · MathJax · Rechenweg-Rubrik · Teilpunkte · 3D-Canvas · Generator- und Äquivalenz-Engine</p></div><span class="pill green">V0.4 UX</span></div></div>
+      <div class="card">
+        <div class="settings-row"><div><strong>Helles Design</strong><p class="subtitle">Für helle Umgebung.</p></div><button class="toggle ${state.theme==='light'?'on':''}" id="theme-toggle" role="switch" aria-checked="${state.theme==='light'}" aria-label="Helles Design"><i></i></button></div>
+        <div class="settings-row"><div><strong>Bewegungen reduzieren</strong><p class="subtitle">Deaktiviert Übergänge und weiches Scrollen weitgehend.</p></div><button class="toggle ${state.settings.reducedMotion?'on':''}" id="motion-toggle" role="switch" aria-checked="${state.settings.reducedMotion}" aria-label="Bewegungen reduzieren"><i></i></button></div>
+        <div class="settings-row"><div><strong>Klausur-Fokusmodus</strong><p class="subtitle">Blendet im Prüfungsmodus Nebeninformationen stärker zurück.</p></div><button class="toggle ${state.settings.focusMode?'on':''}" id="focus-toggle" role="switch" aria-checked="${state.settings.focusMode}" aria-label="Klausur-Fokusmodus"><i></i></button></div>
+        <div class="settings-row"><div><strong>Als App installieren</strong><p class="subtitle">Auf unterstützten Geräten direkt zum Home-Bildschirm hinzufügen. Die App funktioniert nach dem ersten Laden offline.</p></div><button class="btn" id="install-app">Installieren</button></div>
+        <div class="settings-row"><div><strong>Interne Systemprüfung</strong><p class="subtitle">Prüft Module, Kompetenzen, Generatoren, Klausurverweise und Mischmissionen direkt im Browser.</p>${audit?`<small class="audit-status ${audit.passed?'ok':'warn'}">${audit.passed?'✓ Bestanden':'! Hinweise'} · ${formatDate(audit.created,true)}${audit.issues?.length?` · ${audit.issues.map(esc).join(', ')}`:''}</small>`:''}</div><button class="btn" id="run-audit">Jetzt prüfen</button></div>
+        <div class="settings-row"><div><strong>Lernstand zurücksetzen</strong><p class="subtitle">Entfernt Mastery, Fehler, XP und Klausuren dauerhaft auf diesem Gerät.</p></div><button class="btn danger" id="reset-all">Alles löschen</button></div>
+        <div class="settings-row"><div><strong>Technischer Status</strong><p class="subtitle">GitHub Flat · lokales MathJax · Offline-Cache · lokale Speicherung · 5-teilige Rechenweg-Rubrik · ${ENGINE.generatorCatalog.length} Generatoren · ${(V5.examCards?.length||0)+(V6.examCards?.length||0)} Klausurformate</p></div><div class="status-stack"><span class="pill green">V1.0 FINAL</span><span class="pill ${online?'green':'cyan'}">${online?'Online':'Offline bereit'}</span></div></div>
+      </div>
     </div>`;
     document.getElementById('theme-toggle').onclick=()=>{state.theme=state.theme==='light'?'dark':'light';saveState();applyTheme();render();};
-    document.getElementById('motion-toggle').onclick=()=>{state.settings.reducedMotion=!state.settings.reducedMotion;saveState();render();};
-    document.getElementById('reset-all').onclick=()=>{if(confirm('Wirklich den gesamten lokalen Lernstand löschen?')){try{localStorage.removeItem(STORAGE_KEY);localStorage.removeItem(LEGACY_KEY);localStorage.removeItem(LEGACY_KEY_V2);}catch(error){console.warn('Lokaler Speicher ist in diesem Kontext nicht zugänglich:',error);}state=structuredClone(defaultState);applyTheme();render();}};
+    document.getElementById('motion-toggle').onclick=()=>{state.settings.reducedMotion=!state.settings.reducedMotion;saveState();applyTheme();render();};
+    document.getElementById('focus-toggle').onclick=()=>{state.settings.focusMode=!state.settings.focusMode;saveState();render();};
+    document.getElementById('install-app').onclick=async()=>{if(installPrompt){installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;render();}else toast('Nutze im Browser „Zum Home-Bildschirm“ oder „App installieren“.');};
+    document.getElementById('run-audit').onclick=runIntegrityAudit;
+    document.getElementById('reset-all').onclick=()=>{if(confirm('Wirklich den gesamten lokalen Lernstand löschen?')){try{[STORAGE_KEY,LEGACY_KEY_V6,LEGACY_KEY_V5,LEGACY_KEY_V4,LEGACY_KEY,LEGACY_KEY_V2].forEach(key=>localStorage.removeItem(key));}catch(error){console.warn('Lokaler Speicher ist in diesem Kontext nicht zugänglich:',error);}state=structuredClone(defaultState);applyTheme();syncHistory(true);render();}};
   }
 
   function render() {
@@ -1609,11 +1947,14 @@
       case 'coach': renderCoach(); break;
       case 'pathway': renderPathway(); break;
       case 'diagnostic': renderDiagnostic(); break;
+      case 'caseLab': renderCaseLab(); break;
+      case 'audit': renderAudit(); break;
       case 'practice': renderPractice(); break;
       case 'exam': renderExam(); break;
       case 'graph': renderGraph(); break;
       case 'curveLab': renderCurveLab(); break;
       case 'space': renderSpaceLab(); break;
+      case 'visual': renderVisualLab(); break;
       case 'planner': renderPlanner(); break;
       case 'formulas': renderFormulas(); break;
       case 'errors': renderErrors(); break;
@@ -1625,15 +1966,60 @@
     setTimeout(typeset, 20);
   }
 
-  document.getElementById('menu-btn').onclick = () => document.querySelector('.sidebar').classList.toggle('open');
+  function updateConnectionStatus() {
+    const el = document.getElementById('connection-status');
+    if (!el) return;
+    el.textContent = navigator.onLine ? '● Online · offline gespeichert' : '● Offline-Modus';
+    el.classList.toggle('offline', !navigator.onLine);
+  }
+
+  const menuButton = document.getElementById('menu-btn');
+  menuButton.onclick = () => {
+    const sidebar = document.querySelector('.sidebar');
+    const open = !sidebar.classList.contains('open');
+    sidebar.classList.toggle('open', open);
+    menuButton.setAttribute('aria-expanded', String(open));
+  };
   document.getElementById('quick-btn').onclick = () => {
     const weakest = [...DATA.lessons].sort((a,b)=>lessonMastery(a.id)-lessonMastery(b.id)).slice(0,4).map(l=>l.id);
     state.practice = createPractice(weakest, 8); route('practice');
   };
   document.addEventListener('click', event => {
-    if (innerWidth < 760 && !event.target.closest('.sidebar') && !event.target.closest('#menu-btn')) document.querySelector('.sidebar')?.classList.remove('open');
+    if (innerWidth < 760 && !event.target.closest('.sidebar') && !event.target.closest('#menu-btn')) {
+      document.querySelector('.sidebar')?.classList.remove('open');
+      menuButton.setAttribute('aria-expanded', 'false');
+    }
   });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      document.querySelector('.sidebar')?.classList.remove('open');
+      menuButton.setAttribute('aria-expanded', 'false');
+    }
+    const isAnswer = event.target.matches?.('.answer-input');
+    const isReasoning = event.target.matches?.('textarea') && (event.ctrlKey || event.metaKey);
+    if (event.key === 'Enter' && !event.shiftKey && (isAnswer || isReasoning)) {
+      const check = ['task-check','generator-check','practice-check','diagnostic-check','coach-check','path-check','curve-check','space-check','case-check','exam-next'].map(id=>document.getElementById(id)).find(button=>button && !button.disabled);
+      if (check) { event.preventDefault(); check.click(); }
+    }
+  });
+  window.addEventListener('popstate', event => {
+    const snapshot = event.state || {};
+    state.route = snapshot.route || location.hash.slice(1) || 'dashboard';
+    if (snapshot.lesson !== undefined) state.lesson = snapshot.lesson;
+    if (snapshot.lessonTab !== undefined) state.lessonTab = snapshot.lessonTab;
+    saveState();
+    render();
+  });
+  window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); installPrompt = event; });
+  window.addEventListener('online', updateConnectionStatus);
+  window.addEventListener('offline', updateConnectionStatus);
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(error => console.warn('Offline-Cache:', error)));
+  }
 
+  applyTheme();
+  syncHistory(true);
   render();
+  updateConnectionStatus();
   window.addEventListener('load', () => setTimeout(typeset, 250));
 })();

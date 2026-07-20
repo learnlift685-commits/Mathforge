@@ -1,0 +1,7 @@
+MATHFORGE NRW V1.0 verwendet MathJax zur Darstellung mathematischer Formeln.
+
+Komponente: MathJax 3 (tex-svg bundle)
+Projekt: https://www.mathjax.org/
+Lizenz: Apache License 2.0
+
+Der vollständige Lizenztext befindet sich in MATHJAX_LICENSE.txt.

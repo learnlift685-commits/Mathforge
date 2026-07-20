@@ -2,7 +2,7 @@
   'use strict';
 
   const EPS = 1e-7;
-  const sampleXs = [-3.2, -2, -1.25, -0.4, 0.35, 1, 2.4, 4.1];
+  const sampleXs = [-5.25, -3.2, -2, -1.25, -0.4, 0.35, 1, 2.4, 4.1, 6.2];
 
   const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
   const choice = arr => arr[randInt(0, arr.length - 1)];
@@ -64,11 +64,14 @@
 
   function preprocessExpression(raw) {
     let s = String(raw ?? '').trim().toLowerCase();
-    s = s.replace(/−|–/g, '-').replace(/·|×/g, '*').replace(/÷|:/g, '/');
+    s = s.replace(/[₀₁₂₃₄₅₆₇₈₉]/g, digit => '0123456789'['₀₁₂₃₄₅₆₇₈₉'.indexOf(digit)]);
+    s = s.replace(/−|–|—/g, '-').replace(/·|×|∙/g, '*').replace(/÷|:/g, '/');
+    s = s.replace(/√\s*\(/g, 'sqrt(').replace(/√\s*([0-9.]+)/g, 'sqrt($1)');
     s = s.replace(/,/g, '.').replace(/π/g, 'pi');
     s = s.replace(/²/g, '^2').replace(/³/g, '^3').replace(/⁴/g, '^4').replace(/⁵/g, '^5');
     s = s.replace(/\s+/g, '');
-    s = s.replace(/^f\s*'?\s*\(x\)\s*=/, '').replace(/^y\s*=/, '').replace(/^g\s*\(x\)\s*=/, '');
+    s = s.replace(/^f\s*['′]?\s*\(x\)\s*=/, '').replace(/^g\s*\(x\)\s*=/, '').replace(/^y\s*=/, '');
+    s = s.replace(/^[a-z](?:_?\d+)?\s*=/, '');
     s = s.replace(/\^\{([^}]+)\}/g, '^$1');
     s = s.replace(/\\frac\\{([^{}]+)\\}\\{([^{}]+)\\}/g, '(($1)/($2))');
     s = s.replace(/\\sqrt\\{([^{}]+)\\}/g, 'sqrt($1)');
@@ -192,13 +195,17 @@
   }
 
   function parseNumber(raw) {
-    const s = preprocessExpression(raw);
+    let source = String(raw ?? '').trim();
+    source = source.replace(/%$/, '').replace(/\s*(?:km|cm|mm|m|h|min|s|l|kg|g)(?:\s*\/\s*(?:h|min|s))?\s*$/i, '');
+    const s = preprocessExpression(source);
     try { return evaluateExpression(s, 0); } catch { return Number.NaN; }
   }
 
   function parseTuple(raw) {
-    let s = String(raw ?? '').trim().replace(/−|–/g, '-');
-    s = s.replace(/[\[\]{}()]/g, '').replace(/^[A-Za-z]\s*=?\s*/, '');
+    let s = String(raw ?? '').trim().replace(/−|–|—/g, '-');
+    s = s.replace(/[₀₁₂₃₄₅₆₇₈₉]/g, digit => '0123456789'['₀₁₂₃₄₅₆₇₈₉'.indexOf(digit)]);
+    s = s.replace(/[\[\]{}()<>]/g, '');
+    s = s.replace(/(?:x|t|r|s|p|v)(?:_?\d+)?\s*=\s*/gi, '');
 
     // In deutschen Eingaben ist das Komma mehrdeutig: „1,5“ kann eine
     // Dezimalzahl sein, „1,5,3“ aber eine Komponentenliste. Bei klaren
@@ -227,6 +234,10 @@
 
   function checkAnswer(task, user) {
     const raw = String(user ?? '').trim();
+    if (task.answerKind === 'set' && /^(?:∅|\\emptyset|\{\}|leer|keine(?:\s+reelle)?\s+l[oö]sung(?:en)?|keine)$/i.test(raw)) {
+      const expected = Array.isArray(task.answer) ? task.answer : parseSet(task.answer);
+      return { correct: expected.length === 0, reason: 'empty-set' };
+    }
     if (!raw) return { correct: false, reason: 'empty' };
     if (task.type === 'choice' || task.answerKind === 'choice') {
       return { correct: raw.toUpperCase() === String(task.answer).toUpperCase(), reason: 'choice' };

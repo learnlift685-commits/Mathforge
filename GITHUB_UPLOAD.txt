@@ -1,10 +1,15 @@
-MATHFORGE NRW V0.4 AUF GITHUB PAGES HOCHLADEN
+MATHFORGE NRW V1.0 FINAL – GITHUB UPLOAD
 
 1. ZIP entpacken.
-2. Alle enthaltenen Dateien direkt in die oberste Ebene des Repositorys hochladen.
-3. GitHub: Settings > Pages.
-4. Deploy from a branch auswählen.
-5. main und /(root) auswählen.
-6. Speichern.
+2. Alle enthaltenen Dateien direkt in die oberste Ebene deines GitHub-Repositorys hochladen.
+3. Vorhandene ältere MATHFORGE-Dateien vollständig ersetzen.
+4. GitHub: Settings → Pages.
+5. Source: Deploy from a branch.
+6. Branch: main; Folder: / (root).
+7. Speichern und anschließend die GitHub-Pages-Adresse öffnen.
 
-Keine Ordnerstruktur, kein npm und kein Build-Befehl erforderlich.
+WICHTIG
+- Keine Unterordner erstellen.
+- Keine JS-Dateien umbenennen.
+- index.html, styles.css, app.js, alle mathforge-*-Dateien, MathJax, Manifest, Service Worker und Icons gemeinsam hochladen.
+- Beim ersten Aufruf einmal online laden, damit der Offline-Cache eingerichtet wird.

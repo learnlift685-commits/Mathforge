@@ -4,37 +4,57 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#07111f" />
-  <meta name="description" content="MATHFORGE NRW V0.4 – Übersichtlicher UX-Rebuild, Rechenweg-Intelligenz und adaptives EF-Mathematik-Lernsystem für Nordrhein-Westfalen." />
-  <title>MATHFORGE NRW</title>
+  <meta name="description" content="MATHFORGE NRW V1.0 – vollständiges EF-Mathematik-Lernsystem für Nordrhein-Westfalen mit Masterclasses, Rechenwegdiagnose, 91 Aufgabengeneratoren, Klausuren und Visual-Laboren." />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="MATHFORGE" />
+  <title>MATHFORGE NRW · V1.0</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="icon" href="icon-192.png" />
   <link rel="stylesheet" href="styles.css" />
   <script>
     window.MathJax = {
-      tex: { inlineMath: [['\\(','\\)']], displayMath: [['\\[','\\]']], packages: {'[+]':['ams']} },
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]']],
+        packages: {'[+]':['ams']},
+        processEscapes: true
+      },
       svg: { fontCache: 'global' },
       startup: { typeset: false }
     };
   </script>
-  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <script defer src="mathjax-tex-svg.js"></script>
 </head>
 <body>
   <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
   <div id="app-shell">
-    <aside id="sidebar" class="sidebar">
-      <div class="brand"><div class="brand-mark">∫</div><div><strong>MATHFORGE</strong><span>NRW · EF</span></div></div>
+    <aside id="sidebar" class="sidebar" aria-label="Seitennavigation">
+      <div class="brand"><div class="brand-mark" aria-hidden="true">∫</div><div><strong>MATHFORGE</strong><span>NRW · EF · V1.0</span></div></div>
       <nav id="nav" aria-label="Hauptnavigation"></nav>
       <div class="sidebar-foot">
         <div class="mini-stat"><span>Level</span><strong id="side-level">1</strong></div>
         <div class="mini-stat"><span>Mastery</span><strong id="side-mastery">0%</strong></div>
       </div>
+      <div class="connection-status" id="connection-status" aria-live="polite">● Offline bereit</div>
     </aside>
-    <div class="mobile-topbar"><button id="menu-btn" aria-label="Menü öffnen">☰</button><div class="mobile-brand">∫ MATHFORGE NRW</div><button id="quick-btn" aria-label="Schnellübung">⚡</button></div>
+    <div class="mobile-topbar">
+      <button id="menu-btn" aria-label="Menü öffnen" aria-controls="sidebar" aria-expanded="false">☰</button>
+      <div class="mobile-brand">∫ MATHFORGE NRW</div>
+      <button id="quick-btn" aria-label="Schnellübung starten">⚡</button>
+    </div>
     <main id="main" tabindex="-1"></main>
   </div>
   <div id="toast" role="status" aria-live="polite"></div>
   <script src="mathforge-data.js"></script>
   <script src="mathforge-v03-data.js"></script>
+  <script src="mathforge-v05-data.js"></script>
+  <script src="mathforge-v06-data.js"></script>
   <script src="mathforge-engine.js"></script>
   <script src="mathforge-v03-engine.js"></script>
+  <script src="mathforge-v05-engine.js"></script>
+  <script src="mathforge-v06-engine.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

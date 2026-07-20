@@ -1,35 +1,66 @@
-MATHFORGE NRW V0.4 — BUILD- UND UX-PRÜFBERICHT
+MATHFORGE NRW V1.0 FINAL – BUILD- UND PRÜFBERICHT
 
-STRUKTUR
-[OK] Alle Dateien liegen flach nebeneinander.
-[OK] Relative Dateipfade für GitHub Pages.
-[OK] Kein npm, Vite, src-, dist- oder assets-Ordner nötig.
+RELEASE-STATUS
+V1.0 FINAL für den in der App definierten NRW-EF-Umfang.
+GitHub-Flat-Build ohne npm, Build-Schritt, Anmeldung oder Backend.
 
-JAVASCRIPT
-[OK] app.js mit node --check geprüft.
-[OK] mathforge-data.js mit node --check geprüft.
-[OK] mathforge-engine.js mit node --check geprüft.
-[OK] mathforge-v03-data.js mit node --check geprüft.
-[OK] mathforge-v03-engine.js mit node --check geprüft.
+INHALTSAUDIT
+- 24 eindeutige Masterclasses
+- 31 abgebildete EF-Kompetenzen
+- 96 feste Aufgaben
+- 45 geführte Beispiele
+- 12 Diagnoseaufgaben
+- 91 Generatorfamilien
+- 21 Klausurformate
+- 8 mehrteilige Mischmissionen
+- 14 Visual-Labore
+- 36 Formeleinträge
 
-UX-ARCHITEKTUR
-[OK] Hauptnavigation auf fünf Nutzeraufgaben reduziert.
-[OK] Einstellungen separat erreichbar.
-[OK] 17 frühere Hauptwerkzeuge logisch untergeordnet.
-[OK] Heute-Seite besitzt eine dominante Hauptaktion.
-[OK] Üben ist in geführt, frei und Fehlerfokus gegliedert.
-[OK] Spezialwerkzeuge per Progressive Disclosure erreichbar.
-[OK] Fortschritt führt aus jeder Erkenntnis direkt zu einer Handlung.
+AUTOMATISCHE MATHE- UND STRESSTESTS
+- 9.100 zufällig erzeugte Aufgaben aus allen 91 Generatorfamilien geprüft.
+- Jede erzeugte Aufgabe wurde mit ihrer eigenen mathematisch korrekten Lösung gegengeprüft.
+- 210 vollständige Klausuren aus allen 21 Profilen erzeugt und strukturell geprüft.
+- 200 mehrteilige Mischmissionen erzeugt und geprüft.
+- Keine verbleibenden Eigenlösungs-, Struktur-, NaN-, Platzhalter- oder Steuerzeichenfehler in diesen Tests.
 
-DATENMIGRATION
-[OK] V0.3-Schlüssel wird gelesen und nach V0.4 migriert.
-[OK] V0.2 bleibt als zweiter Fallback erhalten.
-[OK] Mastery, Fehler, Klausurhistorie, XP und Lernzeit bleiben bestehen.
+EINGABETESTS
+Erfolgreich geprüft wurden unter anderem:
+- x = 3
+- 1,5 m
+- √(9)
+- x₁ = -2, x₂ = 5
+- Punkte mit Dezimalkomma
+- Vektoren in Winkel- beziehungsweise Tupelschreibweise
+- leere Menge ∅
+- äquivalente Termreihenfolgen
 
-DARSTELLUNG
-[OK] Responsive Regeln für Desktop, iPad und Smartphone ergänzt.
-[OK] Dark- und Light-Mode-Regeln erhalten.
-[OK] MathJax-Konfiguration und mathematische Darstellung unverändert erhalten.
+TECHNISCHE PRÜFUNG
+- JavaScript-Syntax aller lokalen JS-Dateien bestanden.
+- HTML geparst.
+- Manifest als gültiges JSON geparst.
+- Alle lokalen index.html-Verweise vorhanden.
+- Keine undefinierten CSS-Variablen.
+- Icons als 192×192 und 512×512 PNG geprüft.
+- 19 zentrale Ansichten in einer DOM-Testumgebung ohne sichtbare undefined-, NaN- oder Object-Platzhalter gerendert.
+- Service-Worker-Cache nutzt relative Pfade für GitHub Pages.
 
-HINWEIS
-Ein isolierter Chromium-Screenshot-Test war in der Containerumgebung durch den externen MathJax-CDN-Aufruf nicht zuverlässig abschließbar. Die lokale JavaScript-Syntax, Dateiverknüpfung und Seitenlogik wurden statisch geprüft. Die App lädt MathJax im normalen Browser wie V0.3 aus dem CDN.
+VISUELLE BROWSERPRÜFUNG
+- Echter Chromium-Render unter virtueller Anzeige durchgeführt.
+- Desktop-Dashboard, Lernbereich, Klausurzentrum und Masterclass geprüft.
+- iPad-Hochformat geprüft.
+- Lokale MathJax-Formeln sichtbar korrekt gerendert.
+- Navigation, Kartenhierarchie und Spezialwerkzeuge auf Überladung kontrolliert.
+
+BEHOBENE FINALFEHLER
+- Diagnose-Schaltfläche mit ungültiger Route.
+- Verlorene LaTeX-Backslashes bei Teilen der Vektorformeln.
+- Fehlende Oberflächenvariablen im CSS.
+- Zu enger iPad-Desktopmodus.
+- Zu unflexible natürliche Antwortformate.
+- Browser-Navigation und Offline-Fallback gehärtet.
+
+BEKANNTE, BEWUSSTE GRENZE
+Die lokale Antwort- und Rubrik-Engine kann viele vorgesehene numerische, algebraische und strukturierte Lösungen prüfen. Sie kann nicht garantieren, jeden beliebigen freien Beweis, jede sprachliche Begründung oder jeden ungewöhnlichen alternativen Lösungsweg semantisch korrekt zu bewerten. Diese Grenze ist in der App transparent ausgewiesen.
+
+ERGEBNIS
+Alle für dieses Release vorgesehenen automatischen und visuellen Prüfungen wurden bestanden. Keine bekannten blockierenden Fehler verbleiben.

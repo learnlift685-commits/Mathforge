@@ -1,0 +1,33 @@
+MATHFORGE NRW V1.0 FINAL – ÄNDERUNGSPROTOKOLL
+
+FINALER QUALITÄTSAUSBAU
+- Versionsspeicher auf mathforge_nrw_v10 umgestellt.
+- Automatische Übernahme älterer lokaler Lernstände beibehalten.
+- Browser-Zurück/Vor-Navigation ergänzt.
+- Tastaturbedienung für Antwortprüfung und Navigation verbessert.
+- Fokuszustände, ARIA-Beschriftungen und reduzierte Bewegungen verbessert.
+- iPad-Hochformat erhält eine ruhigere mobile Navigation.
+
+FORMELDARSTELLUNG UND OFFLINE
+- MathJax vollständig lokal eingebunden.
+- Fehlerhafte Backslash-Escapes in neuen Vektor- und Klausurformeln korrigiert.
+- Manifest, Icons und Service Worker ergänzt beziehungsweise finalisiert.
+- Offline-Fallback so gehärtet, dass nur Navigationsanfragen auf index.html zurückfallen.
+
+MATHEMATISCHE EINGABEN
+- x = 3 und ähnliche Beschriftungen werden akzeptiert.
+- Deutsches Dezimalkomma und Einheiten werden verarbeitet.
+- Lösungsmengen mit x₁/x₂, Punkte, Vektoren und ∅ werden sauber erkannt.
+- Unicode-Minus und Wurzelschreibweise wurden erweitert.
+- Äquivalenzprüfung für Terme verwendet zusätzliche Prüfpunkte.
+
+FEHLERBEHEBUNGEN
+- Ungültige Diagnose-Route korrigiert.
+- Fehlende CSS-Variablen ergänzt.
+- Unauffälliger Standard-Zurückbutton auf Masterclass-Seiten gestaltet.
+- Alte sichtbare Versionsbezeichnungen bereinigt.
+- Klausurhistorie auf V1.0-Metadaten aktualisiert.
+
+INTEGRITÄT
+- Interne Systemprüfung in den Einstellungen prüft Module, Kompetenzen, Generatoren, Klausurverweise und Mischmissionen.
+- Ehrliche Grenze für freie Beweise und ungewöhnliche Lösungswege klar ausgewiesen.
