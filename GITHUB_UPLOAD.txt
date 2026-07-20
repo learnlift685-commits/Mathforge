@@ -1,0 +1,1 @@
+ZIP entpacken und index.html, styles.css, mathforge-data.js, app.js und README.md direkt gemeinsam in die oberste Ebene deines GitHub-Repositories hochladen. Danach Settings > Pages > Deploy from a branch > main > /(root).

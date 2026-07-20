@@ -1,0 +1,31 @@
+MATHFORGE NRW V0.1 — BUILD & QA REPORT
+
+INHALT
+- Aktive Lernmodule: 21
+- Theorieblöcke: 63
+- vollständig geführte Beispiele: 41
+- interaktive Modulaufgaben: 84
+- Diagnoseaufgaben: 12
+- Einträge im Formelwerk: 19
+- NRW-EF-Kompetenzen im Atlas: 31
+- nicht zugeordnete Kompetenzen: 0
+
+TECHNIK
+- Dateistruktur: vollständig flach
+- Build-System nötig: nein
+- Backend/Accounts: nein
+- lokale Speicherung: ja
+- Formelrendering: MathJax
+- GitHub-Pages-Pfade: relativ
+
+PRÜFUNGEN
+- JavaScript-Syntaxprüfung: BESTANDEN
+- Datenstruktur- und ID-Prüfung: BESTANDEN
+- Aufgaben-Vollständigkeitsprüfung: BESTANDEN
+- Kompetenz-Zuordnungsprüfung: BESTANDEN
+- Kontrolle auf Steuerzeichen/kaputte Datentexte: BESTANDEN
+- Kontrolle auf sichtbare Platzhalter wie <p>, [object Object] oder undefined: BESTANDEN
+- lokale Dateiverweise: BESTANDEN
+
+EINORDNUNG
+V0.1 ist die erste große Bauphase. Der vollständige offizielle EF-Kompetenzrahmen ist als Atlas abgebildet und mit Lernmodulen verknüpft. Der Erklärungskorpus und Aufgabenpool werden in weiteren Sessions noch deutlich vergrößert; insbesondere entstehen anschließend variierte Aufgabengeneratoren, tiefere Schritt-für-Schritt-Engines, mehr räumliche Visualisierungen und ein vollständiger Klausursimulator.

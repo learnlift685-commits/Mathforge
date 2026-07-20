@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#07111f" />
+  <meta name="description" content="MATHFORGE NRW – adaptives EF-Mathematik-Lernsystem für Nordrhein-Westfalen." />
+  <title>MATHFORGE NRW</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['\\(','\\)']], displayMath: [['\\[','\\]']], packages: {'[+]':['ams']} },
+      svg: { fontCache: 'global' },
+      startup: { typeset: false }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+  <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
+  <div id="app-shell">
+    <aside id="sidebar" class="sidebar">
+      <div class="brand"><div class="brand-mark">∫</div><div><strong>MATHFORGE</strong><span>NRW · EF</span></div></div>
+      <nav id="nav" aria-label="Hauptnavigation"></nav>
+      <div class="sidebar-foot">
+        <div class="mini-stat"><span>Level</span><strong id="side-level">1</strong></div>
+        <div class="mini-stat"><span>Mastery</span><strong id="side-mastery">0%</strong></div>
+      </div>
+    </aside>
+    <div class="mobile-topbar"><button id="menu-btn" aria-label="Menü öffnen">☰</button><div class="mobile-brand">∫ MATHFORGE NRW</div><button id="quick-btn" aria-label="Schnellübung">⚡</button></div>
+    <main id="main" tabindex="-1"></main>
+  </div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="mathforge-data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
