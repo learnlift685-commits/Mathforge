@@ -1,31 +1,64 @@
-MATHFORGE NRW V0.1 — BUILD & QA REPORT
+MATHFORGE NRW V0.2 — BUILD- UND QUALITÄTSBERICHT
+Stand: 20.07.2026
+
+STRUKTUR
+[OK] Flache GitHub-Pages-Struktur ohne Unterordner
+[OK] Relative Verknüpfung von CSS und allen JavaScript-Dateien
+[OK] Kein npm, kein Build-System, kein Backend
+[OK] V0.1-Zustandsmigration auf mathforge_nrw_v02
+[OK] App bleibt auch in restriktiven Vorschau-Modi ohne Local-Storage-Absturz bedienbar
 
 INHALT
-- Aktive Lernmodule: 21
-- Theorieblöcke: 63
-- vollständig geführte Beispiele: 41
-- interaktive Modulaufgaben: 84
-- Diagnoseaufgaben: 12
-- Einträge im Formelwerk: 19
-- NRW-EF-Kompetenzen im Atlas: 31
-- nicht zugeordnete Kompetenzen: 0
+[OK] 24 Lernmodule
+[OK] 72 ausführliche Theorieblöcke
+[OK] 45 geführte Worked Examples
+[OK] 96 feste Aufgaben mit Erklärungen und Lösungswegen
+[OK] 12 Diagnoseaufgaben
+[OK] 31 offizielle EF-Kompetenzen verknüpft
+[OK] 27 Generatorfamilien
+[OK] 36 Formeleinträge mit Bedeutungs- und Einsatzhinweisen
+[OK] 8 Lernphasen
+[OK] 4 Mastery-Dimensionen
+[OK] 5 Step-Coach-Missionstypen
+[OK] 2 dynamische Klausurformate
 
-TECHNIK
-- Dateistruktur: vollständig flach
-- Build-System nötig: nein
-- Backend/Accounts: nein
-- lokale Speicherung: ja
-- Formelrendering: MathJax
-- GitHub-Pages-Pfade: relativ
+AUTOMATISCHE ENGINE-PRÜFUNGEN
+[OK] JavaScript-Syntax: app.js
+[OK] JavaScript-Syntax: mathforge-data.js
+[OK] JavaScript-Syntax: mathforge-engine.js
+[OK] Eindeutige Lektions- und Aufgaben-IDs
+[OK] Jede Lektion besitzt Ziele, Voraussetzungen, Kernidee, Algorithmus, Mikrokompetenzen und Exit-Tickets
+[OK] Alle 96 festen Aufgaben akzeptieren ihre definierte Lösung
+[OK] Alle 12 Diagnoseaufgaben akzeptieren ihre definierte Lösung
+[OK] 8.100 zufällig erzeugte Aufgaben akzeptieren ihre jeweils erzeugte Lösung
+[OK] 1.000 zufällig erzeugte Coach-Missionen akzeptieren alle mathematischen Teilschritte
+[OK] Alle 31 Kompetenzen sind mindestens einem Lernmodul zugeordnet
+[OK] Mathematische Äquivalenztests bestanden
+[OK] 12x³−4x und −4x+12x³ werden als äquivalent erkannt
+[OK] −x² wird korrekt als −(x²) und nicht als (−x)² ausgewertet
+[OK] Dezimalkomma, Lösungsmenge, Punkt und Vektor werden getrennt geparst
+[OK] Bruchkomponenten in Punkten und Vektoren werden akzeptiert
 
-PRÜFUNGEN
-- JavaScript-Syntaxprüfung: BESTANDEN
-- Datenstruktur- und ID-Prüfung: BESTANDEN
-- Aufgaben-Vollständigkeitsprüfung: BESTANDEN
-- Kompetenz-Zuordnungsprüfung: BESTANDEN
-- Kontrolle auf Steuerzeichen/kaputte Datentexte: BESTANDEN
-- Kontrolle auf sichtbare Platzhalter wie <p>, [object Object] oder undefined: BESTANDEN
-- lokale Dateiverweise: BESTANDEN
+UI- UND LAUFZEITPRÜFUNGEN
+[OK] App in echtem Headless-Chromium mit eingebetteten lokalen Dateien gestartet
+[OK] Keine JavaScript- oder Konsolenfehler in der geprüften Laufzeit
+[OK] Zehn Hauptrouten interaktiv geöffnet
+[OK] Alle 24 Masterclasses auffindbar
+[OK] Alle acht Phasen einer Masterclass gerendert
+[OK] Infinite-Forge-Aufgabe mit Eingabefeld erzeugt
+[OK] Step-Coach-Mission gestartet
+[OK] Graphen-Labor samt Canvas gerendert
+[OK] Formelwerk mit erweiterten Einträgen gerendert
+[OK] Keine sichtbaren Platzhalter wie undefined oder [object Object] in den getesteten Hauptrouten
 
-EINORDNUNG
-V0.1 ist die erste große Bauphase. Der vollständige offizielle EF-Kompetenzrahmen ist als Atlas abgebildet und mit Lernmodulen verknüpft. Der Erklärungskorpus und Aufgabenpool werden in weiteren Sessions noch deutlich vergrößert; insbesondere entstehen anschließend variierte Aufgabengeneratoren, tiefere Schritt-für-Schritt-Engines, mehr räumliche Visualisierungen und ein vollständiger Klausursimulator.
+GEPRÜFTE ANTWORTARTEN
+[OK] Multiple Choice
+[OK] Zahlen mit Toleranz und Dezimalkomma
+[OK] mathematisch äquivalente Terme
+[OK] ungeordnete Lösungsmengen
+[OK] Punkte mit zwei oder drei Koordinaten
+[OK] Vektoren und Bruchkomponenten
+[OK] textliche Erklärungen mit Mindesttiefe und Fachbegriffen
+
+ERGEBNIS
+V0.2 ist kein reines Antwort-Quiz mehr. Die App trainiert Konzeptverständnis, Strategieauswahl, vollständige Rechenwege, Selbst-Erklärung, Transfer, Fehlerreparatur und zeitversetzten Abruf. Weitere Bauphasen können den Aufgabenkorpus, die Modellierung, 3D-Visualisierung und Klausurteilpunkte noch weiter vertiefen.

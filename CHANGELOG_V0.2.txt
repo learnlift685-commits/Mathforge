@@ -1,0 +1,30 @@
+MATHFORGE NRW V0.2 — WICHTIGSTE ERWEITERUNGEN
+
+LERNARCHITEKTUR
+- Neue achtphasige FORGE-DEEP-LEARNING-Schleife.
+- Mastery wird getrennt nach Verständnis, Verfahren, Transfer und Langzeitabruf gespeichert.
+- Jede Masterclass enthält Ziele, Voraussetzungen, Konzeptkern, Vorgehensalgorithmus, Mikrofertigkeiten und Exit-Tickets.
+- Selbst-Erklärungen, Sicherheitsbewertung und zeitversetzte Wiederholung sind Teil des Lernflusses.
+
+AUFGABEN UND AUSWERTUNG
+- 27 Generatorfamilien für unbegrenzt neue Zahlen-, Term-, Funktions- und Vektorvarianten.
+- Prüfung mathematisch äquivalenter Terme statt bloßem Textvergleich.
+- Spezielle Auswertung für Zahlen, Terme, Mengen, Punkte und Vektoren.
+- Mehrstufige Hinweise und vollständige Lösungswege.
+- Fehlerklassifikation und automatische Reparaturaufgaben.
+
+NEUE BEREICHE
+- Infinite Forge.
+- Fünf Step Coaches: Ableitung, Nullstellen, Änderungsraten, Kurvendiskussion und Geradenschnitt.
+- Dynamisches Klausurzentrum.
+- Vertiefte Lernanalyse und Fehler-DNA.
+- Drei zusätzliche Grundlagenmodule: quadratische Gleichungen, lineare Funktionen und LGS für Geometrie.
+
+QUALITÄT
+- Vorzeichen-Potenz-Regel im Termparser korrigiert: -x² wird als -(x²) verstanden.
+- Negative Vektorkomponenten werden in Längenrechnungen eindeutig geklammert.
+- Diagnose-Ergebnisse führen direkt in passende Reparatur-Masterclasses.
+- V0.1-Lernstand wird übernommen.
+- Lösungsmengen und Punkte unterscheiden jetzt sicher zwischen Dezimalkomma und Listentrenner.
+- 36 Formeln mit konkreteren Bedeutungs- und Einsatzhinweisen.
+- Neue Generatoren für Symmetrie, Differenzenquotient, Normalensteigung, Monotonie, Skalarmultiplikation, Kollinearität und Lagebeziehungen.

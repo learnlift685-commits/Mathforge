@@ -1,1 +1,13 @@
-ZIP entpacken und index.html, styles.css, mathforge-data.js, app.js und README.md direkt gemeinsam in die oberste Ebene deines GitHub-Repositories hochladen. Danach Settings > Pages > Deploy from a branch > main > /(root).
+MATHFORGE NRW V0.2 AUF GITHUB PAGES VERÖFFENTLICHEN
+
+1. ZIP-Datei entpacken.
+2. ALLE enthaltenen Dateien markieren.
+3. Die Dateien direkt in die oberste Ebene deines GitHub-Repositorys hochladen.
+   Nicht den gesamten äußeren Ordner als Unterordner hochladen.
+4. GitHub: Settings → Pages.
+5. Source: Deploy from a branch.
+6. Branch: main; Folder: / (root).
+7. Save.
+
+Es sind kein npm, kein Terminal, kein Build-Befehl und keine Ordnerstruktur nötig.
+Die Startdatei muss im Repository direkt `index.html` heißen.
