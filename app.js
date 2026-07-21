@@ -6,7 +6,8 @@
   const V5 = window.MATHFORGE_V05_DATA || { lessonExtensions: {}, visualLabs: {}, examCards: [] };
   const V6 = window.MATHFORGE_V06_DATA || { examCards: [], caseCards: [], operatorGuide: {}, errorTaxonomy: {}, completionCriteria: [] };
   const ENGINE = window.MATHFORGE_ENGINE;
-  const STORAGE_KEY = 'mathforge_nrw_v11';
+  const STORAGE_KEY = 'mathforge_nrw_v12';
+  const LEGACY_KEY_V11 = 'mathforge_nrw_v11';
   const LEGACY_KEY_V10 = 'mathforge_nrw_v10';
   const LEGACY_KEY_V6 = 'mathforge_nrw_v06';
   const LEGACY_KEY_V5 = 'mathforge_nrw_v05';
@@ -20,9 +21,19 @@
     ['retention', 'Langzeitabruf']
   ];
   const PHASES = DATA.learningArchitecture?.phases || [];
+  const LESSON_FLOW = [
+    { id: 'overview', phase: 'orient', label: 'Start', short: 'Ziel und Ablauf' },
+    { id: 'concept', phase: 'concept', label: 'Verstehen', short: 'Idee und Mini-Checks' },
+    { id: 'examples', phase: 'worked', label: 'Beispiel', short: 'Schritte vorhersagen' },
+    { id: 'guided', phase: 'guided', label: 'Mit Hilfe', short: 'Gestufte Hinweise' },
+    { id: 'explain', phase: 'explain', label: 'Erklären', short: 'Warum in eigenen Worten' },
+    { id: 'independent', phase: 'independent', label: 'Selbst lösen', short: 'Ohne Hilfen rechnen' },
+    { id: 'transfer', phase: 'transfer', label: 'Anwenden', short: 'Neue Situationen' },
+    { id: 'retain', phase: 'retain', label: 'Sichern', short: 'Später abrufen' }
+  ];
 
   const defaultState = {
-    version: 11,
+    version: 12,
     xp: 0,
     level: 1,
     streak: 1,
@@ -86,10 +97,10 @@
     try {
       const current = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
       if (current) return deepMerge(defaultState, current);
-      const legacy = JSON.parse(localStorage.getItem(LEGACY_KEY_V10) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY_V6) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY_V5) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY_V4) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY_V2) || 'null');
+      const legacy = JSON.parse(localStorage.getItem(LEGACY_KEY_V11) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY_V10) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY_V6) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY_V5) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY_V4) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY) || 'null') || JSON.parse(localStorage.getItem(LEGACY_KEY_V2) || 'null');
       if (legacy) {
         const migrated = deepMerge(defaultState, legacy);
-        migrated.version = 11;
+        migrated.version = 12;
         migrated.route = ['dashboard','learn','practiceHub','exam','progressHub','settings'].includes(migrated.route) ? migrated.route : 'dashboard';
         return migrated;
       }
@@ -382,6 +393,13 @@
     return task;
   }
 
+  function newConceptTask(lessonId) {
+    const task = ENGINE.generate(generatorForLesson(lessonId), 1);
+    task.lessonId = lessonId;
+    task.masteryDimension = 'Verständnis';
+    return task;
+  }
+
   function getLessonSession(lessonId) {
     if (!state.lessonSessions[lessonId]) {
       state.lessonSessions[lessonId] = {
@@ -391,9 +409,13 @@
         transfer: { task: newTaskForLesson(lessonId, true), input: '', selected: '', confidence: 2, hints: 0, answered: false, result: null },
         exampleReveal: {},
         examplePredictions: {},
+        exampleIndex: 0,
         conceptStep: 0,
         conceptAnswers: {},
+        conceptReflectionDone: {},
+        conceptTasks: {},
         conceptCompleted: {},
+        exampleComparisonDone: false,
         reflectionDraft: '',
         exitDraft: ''
       };
@@ -401,9 +423,13 @@
     const session = state.lessonSessions[lessonId];
     session.exampleReveal ||= {};
     session.examplePredictions ||= {};
+    session.exampleIndex = Number.isFinite(session.exampleIndex) ? session.exampleIndex : 0;
     session.conceptStep = Number.isFinite(session.conceptStep) ? session.conceptStep : 0;
     session.conceptAnswers ||= {};
+    session.conceptReflectionDone ||= {};
+    session.conceptTasks ||= {};
     session.conceptCompleted ||= {};
+    session.exampleComparisonDone = Boolean(session.exampleComparisonDone);
     return session;
   }
 
@@ -682,111 +708,145 @@
     </div>`;
   }
 
+  function lessonStepComplete(lesson, tab) {
+    const item = LESSON_FLOW.find(step => step.id === tab);
+    return item ? Boolean(phaseState(lesson.id)[item.phase]) : false;
+  }
+
+  function nextLessonTab(lesson) {
+    return LESSON_FLOW.find(step => !lessonStepComplete(lesson, step.id))?.id || 'retain';
+  }
+
+  function lessonStepUnlocked(lesson, index) {
+    return LESSON_FLOW.slice(0, index).every(step => lessonStepComplete(lesson, step.id));
+  }
+
+  function lessonRequirement(tab) {
+    return ({
+      overview: 'Starte den Lernpfad, nachdem du Ziel und Ablauf gesehen hast.',
+      concept: 'Bearbeite jeden Denk-Check und löse danach die zugehörige Mini-Aufgabe korrekt.',
+      examples: 'Sage die nächsten Schritte voraus, decke alle Beispiele auf und speichere den Vergleich.',
+      guided: 'Löse mindestens eine geführte Aufgabe korrekt.',
+      explain: 'Erkläre das Thema so, dass mindestens 3 von 4 Kriterien erfüllt sind.',
+      independent: 'Bearbeite die Aufgabenfolge bis zur letzten Aufgabe korrekt.',
+      transfer: 'Löse eine neue Transferaufgabe korrekt.',
+      retain: 'Beantworte mindestens zwei Exit-Fragen ohne Nachlesen.'
+    })[tab] || 'Bearbeite den aktuellen Schritt.';
+  }
+
+  function lessonFlowHTML(lesson) {
+    const current = Math.max(0, LESSON_FLOW.findIndex(step => step.id === state.lessonTab));
+    return `<section class="lesson-flow-shell" aria-label="Lernpfad">
+      <div class="lesson-flow-head"><div><span>DEIN KLARER LERNPFAD</span><strong>Schritt ${current + 1} von ${LESSON_FLOW.length}</strong></div><div>${Math.round(phaseCompletion(lesson.id))}% abgeschlossen</div></div>
+      ${progress(phaseCompletion(lesson.id))}
+      <div class="lesson-stepper">${LESSON_FLOW.map((step, index) => {
+        const done = lessonStepComplete(lesson, step.id);
+        const unlocked = lessonStepUnlocked(lesson, index);
+        return `<button class="flow-step ${index === current ? 'active' : ''} ${done ? 'done' : ''} ${!unlocked ? 'locked' : ''}" data-flow-step="${step.id}" ${!unlocked ? 'disabled' : ''}>
+          <b>${done ? '✓' : index + 1}</b><span><strong>${step.label}</strong><small>${step.short}</small></span>
+        </button>`;
+      }).join('')}</div>
+    </section>`;
+  }
+
+  function lessonActionBarHTML(lesson) {
+    const index = Math.max(0, LESSON_FLOW.findIndex(step => step.id === state.lessonTab));
+    const complete = lessonStepComplete(lesson, state.lessonTab);
+    const previous = LESSON_FLOW[index - 1];
+    const next = LESSON_FLOW[index + 1];
+    return `<div class="lesson-next-bar ${complete ? 'ready' : ''}">
+      <button class="btn" id="flow-previous" ${!previous ? 'disabled' : ''}>← ${previous ? previous.label : 'Zurück'}</button>
+      <div><span>${complete ? 'Schritt abgeschlossen' : 'Damit es weitergeht'}</span><strong>${complete ? (next ? `Als Nächstes: ${next.label}` : 'Thema vollständig bearbeitet') : lessonRequirement(state.lessonTab)}</strong></div>
+      ${next ? `<button class="btn primary" id="flow-next" ${complete ? '' : 'disabled'}>${next.label} →</button>` : `<button class="btn primary" id="flow-finish" ${complete ? '' : 'disabled'}>Zur Themenübersicht</button>`}
+    </div>`;
+  }
+
   function renderLearn() {
     const filters = ['Alle', 'Grundlagen', 'Analysis', 'Geometrie'];
     const activeFilter = state.learnFilter || 'Alle';
     const lessons = DATA.lessons.filter(lesson => activeFilter === 'Alle' || lesson.domain === activeFilter);
     main.innerHTML = `<div class="page">
-      ${pageHead('MASTERCLASS-BIBLIOTHEK', 'Lernpfade mit Tiefe', 'Jedes Modul besitzt Lernziele, Voraussetzungen, Konzeptkern, Lösungsalgorithmus, Beispiele, geführte Aufgaben, Selbst-Erklärung, Transfer und Wiederholung.')}
+      ${pageHead('GEFÜHRTE LERNPFADE', 'Wähle ein Thema – danach führt dich die App', 'Du musst keine Lernmodi mehr auswählen. Jedes Thema besitzt dieselbe klare Reihenfolge und zeigt dir immer den nächsten notwendigen Schritt.')}
       <div class="filter-row">${filters.map(filter => `<button class="filter-btn ${activeFilter === filter ? 'active' : ''}" data-learn-filter="${filter}">${filter}</button>`).join('')}</div>
-      <div class="lesson-grid">
+      <div class="lesson-grid guided-library">
         ${lessons.map(lesson => {
-          const dims = dimensionState(lesson.id);
-          return `<article class="card lesson-card deep-lesson-card" data-open-lesson="${lesson.id}">
+          const nextTab = nextLessonTab(lesson);
+          const next = LESSON_FLOW.find(step => step.id === nextTab);
+          const completed = LESSON_FLOW.filter(step => lessonStepComplete(lesson, step.id)).length;
+          return `<article class="card lesson-card guided-lesson-card" data-open-lesson="${lesson.id}">
             <div class="lesson-meta">${pill(lesson.domain, 'cyan')}${pill(lesson.level)}${pill(`${lesson.minutes} Min.`)}</div>
             <h3>${lesson.title}</h3><p>${lesson.summary}</p>
-            <div class="micro-tags">${(lesson.masterclass?.microSkills || []).slice(0, 5).map(skill => `<span>${esc(skill)}</span>`).join('')}</div>
-            <div class="mini-dimensions">
-              ${DIMENSIONS.map(([key, label]) => `<div><span>${label}</span>${progress(dims[key] || 0)}</div>`).join('')}
-            </div>
-            <div class="lesson-foot"><strong>${Math.round(lessonMastery(lesson.id))}% Mastery</strong><span>${Math.round(phaseCompletion(lesson.id))}% Phasen</span></div>
+            <div class="lesson-path-status"><div><span>Nächster Schritt</span><strong>${next?.label || 'Abgeschlossen'}</strong><small>${next?.short || 'Wiederholen und festigen'}</small></div><b>${completed}/${LESSON_FLOW.length}</b></div>
+            ${progress(100 * completed / LESSON_FLOW.length)}
+            <button class="btn primary full">${completed ? 'Weiterlernen' : 'Lernpfad starten'} →</button>
           </article>`;
         }).join('')}
       </div>
     </div>`;
     main.querySelectorAll('[data-learn-filter]').forEach(button => button.onclick = () => { state.learnFilter = button.dataset.learnFilter; saveState(); render(); });
-    main.querySelectorAll('[data-open-lesson]').forEach(card => card.onclick = () => openLesson(card.dataset.openLesson, 'overview'));
+    main.querySelectorAll('[data-open-lesson]').forEach(card => card.onclick = () => openLesson(card.dataset.openLesson));
   }
 
-  function openLesson(id, tab = 'overview') {
-    route('lesson', { lesson: id, lessonTab: tab });
-  }
-
-  function lessonTabs(lesson) {
-    const tabs = [
-      ['overview', 'Kompass'], ['concept', 'Verstehen'], ['deep', 'Warum-Labor'], ['examples', 'Beispiele'], ['guided', 'Geführt'],
-      ['explain', 'Erklären'], ['independent', 'Selbstständig'], ['transfer', 'Transfer'], ['retain', 'Behalten']
-    ];
-    return `<div class="tabs phase-tabs">${tabs.map(([id, label]) => `<button class="tab ${state.lessonTab === id ? 'active' : ''} ${phaseState(lesson.id)[id === 'overview' ? 'orient' : ({concept:'concept',deep:'concept',examples:'worked',guided:'guided',explain:'explain',independent:'independent',transfer:'transfer',retain:'retain'}[id])] ? 'done' : ''}" data-lesson-tab="${id}">${label}</button>`).join('')}</div>`;
+  function openLesson(id, tab = null) {
+    const lesson = getLesson(id) || DATA.lessons[0];
+    const normalized = tab === 'deep' ? 'concept' : tab;
+    route('lesson', { lesson: lesson.id, lessonTab: normalized && LESSON_FLOW.some(step => step.id === normalized) ? normalized : nextLessonTab(lesson) });
   }
 
   function masteryPanelHTML(lesson) {
     const dims = dimensionState(lesson.id);
-    return `<aside class="card lesson-side sticky">
-      <div class="side-mastery">${ring(lessonMastery(lesson.id))}<div><strong>Gesamt-Mastery</strong><span>${Math.round(phaseCompletion(lesson.id))}% Lernpfad abgeschlossen</span></div></div>
-      <div class="dimension-bars">${DIMENSIONS.map(([key, label]) => `<div class="skill-row"><span>${label}</span>${progress(dims[key] || 0)}<strong>${Math.round(dims[key] || 0)}%</strong></div>`).join('')}</div>
-      <hr>
-      <strong>NRW-Zuordnung</strong><div class="micro-tags">${lesson.competencies.map(code => `<span>${code}</span>`).join('')}</div>
-      <strong>Fälliger Abruf</strong><p class="subtitle">${state.review[lesson.id] ? formatDate(state.review[lesson.id].due, true) : 'nach erster Übung geplant'}</p>
-      ${V5.visualLabs[lesson.id] ? `<button class="btn full primary" id="lesson-visual">${esc(V5.visualLabs[lesson.id].title)}</button>` : ''}
-      <button class="btn full" id="lesson-infinite">Unendliche Aufgaben</button>
-    </aside>`;
+    return `<details class="card lesson-tools">
+      <summary><span>Fortschritt und Zusatzwerkzeuge</span><small>Nur öffnen, wenn du Details oder ein Spezialwerkzeug brauchst</small></summary>
+      <div class="lesson-tools-content">
+        <div class="side-mastery">${ring(lessonMastery(lesson.id))}<div><strong>Gesamt-Mastery</strong><span>${Math.round(phaseCompletion(lesson.id))}% des Lernpfads abgeschlossen</span></div></div>
+        <div class="dimension-bars">${DIMENSIONS.map(([key, label]) => `<div class="skill-row"><span>${label}</span>${progress(dims[key] || 0)}<strong>${Math.round(dims[key] || 0)}%</strong></div>`).join('')}</div>
+        <div class="tool-actions">${V5.visualLabs[lesson.id] ? `<button class="btn primary" id="lesson-visual">${esc(V5.visualLabs[lesson.id].title)}</button>` : ''}<button class="btn" id="lesson-infinite">Zusätzliche Aufgaben erzeugen</button></div>
+        <div><strong>NRW-Zuordnung</strong><div class="micro-tags">${lesson.competencies.map(code => `<span>${code}</span>`).join('')}</div></div>
+      </div>
+    </details>`;
   }
 
   function renderLessonOverview(lesson) {
     const mc = lesson.masterclass;
-    markPhase(lesson.id, 'orient');
     return `<div class="lesson-main">
-      <div class="card core-idea"><div class="eyebrow">DIE ZENTRALE IDEE</div><h2>${mc.coreIdea}</h2></div>
-      <div class="grid grid-2">
-        <div class="card"><h3>Nach dieser Masterclass kannst du …</h3><ul class="check-list">${mc.objectives.map(item => `<li>${item}</li>`).join('')}</ul></div>
-        <div class="card"><h3>Vorwissen-Check</h3><p>Diese Grundlagen sollten zumindest teilweise sitzen:</p><div class="micro-tags large">${mc.prerequisites.map(item => `<span>${esc(item)}</span>`).join('')}</div><button class="btn small" id="prereq-diagnostic">Kurzen Check erzeugen</button></div>
-      </div>
-      <div class="card"><h3>Mikrokompetenzen – nichts bleibt versteckt</h3><div class="micro-skill-grid">${mc.microSkills.map((skill, index) => `<div><b>${String(index + 1).padStart(2, '0')}</b><span>${esc(skill)}</span></div>`).join('')}</div></div>
-      <div class="card"><h3>Der Lösungsalgorithmus</h3><ol class="algorithm-list">${mc.algorithm.map((step, index) => `<li><b>${index + 1}</b><span>${step}</span></li>`).join('')}</ol><p class="subtitle">Dieser Algorithmus ist kein starrer Rezeptzettel: In Transferaufgaben musst du zuerst erkennen, welche Schritte überhaupt nötig sind.</p></div>
-      <div class="card learning-contract"><h3>Mastery statt Durchklicken</h3><p>Ein Modul gilt erst als sicher, wenn alle vier Dimensionen stabil sind. Eine richtige Antwort mit geringer Sicherheit erhöht den Wert weniger und wird früher wiederholt.</p><div class="grid grid-4">${DIMENSIONS.map(([key, label]) => `<div><strong>${label}</strong><small>${key === 'understanding' ? 'Begriffe und Warum' : key === 'method' ? 'Rechenweg und Regeln' : key === 'transfer' ? 'neue Situationen' : 'Abruf nach Zeit'}</small></div>`).join('')}</div></div>
+      <section class="card learning-route-card">
+        <div class="eyebrow">SCHRITT 1 · START</div>
+        <h2>${mc.coreIdea}</h2>
+        <p>Du arbeitest dieses Thema in acht festen Schritten durch. Die App zeigt dir jeweils nur, was jetzt relevant ist.</p>
+        <div class="path-preview">${LESSON_FLOW.map((step, index) => `<div class="path-preview-step"><b>${index + 1}</b><span><strong>${step.label}</strong><small>${step.short}</small></span></div>`).join('')}</div>
+        <button class="btn primary large-button" id="begin-lesson">${lessonStepComplete(lesson, 'overview') ? 'Weiter mit Verstehen →' : 'Lernpfad starten →'}</button>
+      </section>
+      <details class="card clean-details"><summary>Was du am Ende können wirst</summary><ul class="check-list">${mc.objectives.map(item => `<li>${item}</li>`).join('')}</ul></details>
+      <details class="card clean-details"><summary>Vorwissen kurz prüfen</summary><p>Diese Grundlagen sollten zumindest teilweise sitzen:</p><div class="micro-tags large">${mc.prerequisites.map(item => `<span>${esc(item)}</span>`).join('')}</div><button class="btn small" id="prereq-diagnostic">Kurzen Check erzeugen</button></details>
+      <details class="card clean-details"><summary>Lösungsplan zum Nachschlagen</summary><ol class="algorithm-list">${mc.algorithm.map((step, index) => `<li><b>${index + 1}</b><span>${step}</span></li>`).join('')}</ol></details>
     </div>`;
   }
 
   function renderLessonConcept(lesson, session) {
-    markPhase(lesson.id, 'concept');
     const total = lesson.sections.length;
     const step = Math.max(0, Math.min(session.conceptStep || 0, total - 1));
     const section = lesson.sections[step];
     const answer = session.conceptAnswers[step] || '';
+    const reflectionDone = Boolean(session.conceptReflectionDone[step]);
+    if (!session.conceptTasks[step]) session.conceptTasks[step] = { task: newConceptTask(lesson.id), input: '', selected: '', confidence: 2, hints: 0, answered: false, result: null };
+    const mini = session.conceptTasks[step];
     const completed = Boolean(session.conceptCompleted[step]);
-    const pct = Math.round(((step + (completed ? 1 : 0)) / total) * 100);
+    const pct = Math.round((Object.values(session.conceptCompleted).filter(Boolean).length / total) * 100);
+    const deep = V3.deepDives[lesson.id] || V3.genericDeepDive;
     return `<div class="lesson-main concept-journey">
-      <div class="concept-banner"><span>GEFÜHRTER VERSTEHENSPFAD</span><h2>Ein Gedanke. Eine Entscheidung. Ein eigener Versuch.</h2><p>Du siehst bewusst nur einen Abschnitt. Erst nach einem aktiven Mini-Check geht es weiter.</p></div>
-      <div class="card journey-progress">
-        <div><strong>Schritt ${step + 1} von ${total}</strong><span>${pct}% dieses Verstehenspfads</span></div>
-        ${progress(pct)}
-        <div class="journey-dots">${lesson.sections.map((_, i) => `<button class="journey-dot ${i === step ? 'active' : ''} ${session.conceptCompleted[i] ? 'done' : ''}" data-concept-jump="${i}" title="Schritt ${i + 1}">${i + 1}</button>`).join('')}</div>
-      </div>
-      <section class="card theory-section focus-theory">
-        <div class="theory-number">${String(step + 1).padStart(2, '0')}</div>
-        <div class="focus-theory-content">
-          <div class="eyebrow">JETZT VERSTEHEN</div>
-          <h2>${section.title}</h2>
-          <div class="theory-reading">${section.html}</div>
-        </div>
+      <div class="concept-banner"><span>SCHRITT 2 · VERSTEHEN</span><h2>Erst ein Gedanke, dann eine eigene Lösung</h2><p>Jeder Abschnitt endet mit einer Denkfrage und einer kleinen Rechenaufgabe. Erst danach öffnet sich der nächste Gedanke.</p></div>
+      <div class="card journey-progress"><div><strong>Gedanke ${step + 1} von ${total}</strong><span>${pct}% abgeschlossen</span></div>${progress(pct)}<div class="journey-dots">${lesson.sections.map((_, i) => `<button class="journey-dot ${i === step ? 'active' : ''} ${session.conceptCompleted[i] ? 'done' : ''}" data-concept-jump="${i}" title="Gedanke ${i + 1}">${i + 1}</button>`).join('')}</div></div>
+      <section class="card theory-section focus-theory"><div class="theory-number">${String(step + 1).padStart(2, '0')}</div><div class="focus-theory-content"><div class="eyebrow">EIN GEDANKE</div><h2>${section.title}</h2><div class="theory-reading">${section.html}</div></div></section>
+      <section class="card active-check ${reflectionDone ? 'completed' : ''}">
+        <div class="active-check-head"><div><div class="eyebrow">1 · IN EIGENEN WORTEN</div><h3>${conceptQuestion(lesson, step)}</h3></div><span>${reflectionDone ? '✓ gespeichert' : 'vor der Aufgabe'}</span></div>
+        <textarea id="concept-answer" ${reflectionDone ? 'disabled' : ''} placeholder="Meine Erklärung oder mein Mini-Beispiel …">${esc(answer)}</textarea>
+        <div class="concept-thinking-tools"><button class="btn small" id="concept-hint">Denkhilfe</button><span id="concept-hint-text" hidden>${conceptHint(lesson, step)}</span></div>
+        ${!reflectionDone ? '<button class="btn primary" id="concept-check">Gedanken speichern und Mini-Aufgabe öffnen →</button>' : ''}
       </section>
-      <section class="card active-check ${completed ? 'completed' : ''}">
-        <div class="active-check-head"><div><div class="eyebrow">JETZT DU</div><h3>${conceptQuestion(lesson, step)}</h3></div><span>${completed ? '✓ erledigt' : 'Pflicht vor dem Weitergehen'}</span></div>
-        <p class="subtitle">Antworte kurz in eigenen Worten. Perfekte Formulierungen sind nicht nötig – entscheidend ist, dass du den Gedanken selbst abrufst.</p>
-        <textarea id="concept-answer" placeholder="Meine Erklärung oder mein Mini-Beispiel …">${esc(answer)}</textarea>
-        <div class="concept-thinking-tools">
-          <button class="btn small" id="concept-hint">Denkhilfe</button>
-          <span id="concept-hint-text" hidden>${conceptHint(lesson, step)}</span>
-        </div>
-        <div class="actions">
-          <button class="btn primary" id="concept-check">Antwort prüfen & speichern</button>
-          ${completed && step < total - 1 ? '<button class="btn" id="concept-next">Nächster Gedanke →</button>' : ''}
-          ${completed && step === total - 1 ? '<button class="btn" id="concept-finish">Weiter zu Beispielen →</button>' : ''}
-        </div>
-        <div id="concept-feedback">${completed ? '<div class="feedback correct"><strong>Aktiv verarbeitet.</strong><p>Du hast den Abschnitt nicht nur gelesen, sondern selbst rekonstruiert. Genau dieser Abruf macht ihn langfristig stabiler.</p></div>' : ''}</div>
-      </section>
-      <details class="card compact-reference"><summary>Alle Abschnitte als Nachschlageübersicht</summary><div>${lesson.sections.map((item, i) => `<article><b>${i + 1}. ${item.title}</b><p>${item.html}</p></article>`).join('')}</div></details>
+      ${reflectionDone ? `<section class="concept-mini-shell"><div class="mini-stage-title"><span>2 · SELBST LÖSEN</span><strong>Wende die Idee jetzt direkt an.</strong></div>${taskCardHTML(mini.task, mini, 'concept-mini', 'Mini-Aufgabe')}${mini.answered && !mini.result?.correct ? '<button class="btn" id="concept-retry">Neue ähnliche Mini-Aufgabe versuchen</button>' : ''}</section>` : ''}
+      ${completed ? `<div class="card step-success"><strong>Gedanke ${step + 1} sitzt.</strong><span>Du hast ihn erklärt und selbst angewendet.</span><div class="actions">${step < total - 1 ? '<button class="btn primary" id="concept-next">Nächster Gedanke →</button>' : '<button class="btn primary" id="concept-finish">Weiter zum Beispiel →</button>'}</div></div>` : ''}
+      <details class="card clean-details optional-depth"><summary>Optional: Warum gilt das noch genauer?</summary><div class="why-compact">${deep.why.slice(0, 3).map(([q,a]) => `<article><strong>${q}</strong><p>${a}</p></article>`).join('')}</div><div class="proof-warning"><strong>Herleitung:</strong> ${deep.proofSketch}</div></details>
+      <details class="card compact-reference"><summary>Alle Erklärungen später nachschlagen</summary><div>${lesson.sections.map((item, i) => `<article><b>${i + 1}. ${item.title}</b><p>${item.html}</p></article>`).join('')}</div></details>
     </div>`;
   }
 
@@ -809,56 +869,30 @@
     return prompts[index % prompts.length];
   }
 
-  function renderLessonDeep(lesson) {
-    markPhase(lesson.id, 'concept');
-    const deep = V3.deepDives[lesson.id] || V3.genericDeepDive;
-    const ext = V5.lessonExtensions[lesson.id];
-    const saved = state.reflections[`deep-${lesson.id}`] || [];
-    return `<div class="lesson-main">
-      <div class="concept-banner why-banner"><span>WARUM-LABOR</span><h2>Vom Verfahren zum tragfähigen mentalen Modell</h2><p>Hier wird nicht nur gezeigt, was du tun sollst. Du untersuchst, warum die Regeln gelten, wann sie versagen und wie du sie kontrollierst.</p></div>
-      <div class="card mental-anchor"><div class="eyebrow">MENTALER ANKER</div><h2>${deep.anchor}</h2><p><strong>Bild im Kopf:</strong> ${deep.analogy}</p></div>
-      <div class="why-grid">
-        ${deep.why.map(([question, answer], index) => `<article class="card why-card"><div class="why-number">${String(index + 1).padStart(2,'0')}</div><h3>${question}</h3><p>${answer}</p><button class="btn small" data-why-recall="${index}">Ausblenden & selbst erklären</button><div class="why-recall" id="why-recall-${index}" hidden><textarea placeholder="Erkläre die Antwort ohne den Text zu kopieren …">${esc(saved[index] || '')}</textarea><button class="btn primary small" data-save-why="${index}">Erklärung speichern</button></div></article>`).join('')}
-      </div>
-      <div class="card proof-card"><div class="eyebrow">BEWEISIDEE / HERLEITUNG</div><h3>Woher kommt die Regel?</h3><p>${deep.proofSketch}</p><div class="proof-warning"><strong>Wichtig:</strong> Eine Beweisidee ersetzt nicht das Rechnen. Sie sorgt dafür, dass du Regeln rekonstruieren kannst, statt sie nur auswendig zu kennen.</div></div>
-      <div class="card"><h3>Fehler-Landkarte</h3><div class="mistake-map">${deep.mistakeMap.map(([name, repair]) => `<div><span>${esc(name)}</span><i>→</i><strong>${esc(repair)}</strong></div>`).join('')}</div></div>
-      ${ext ? `<section class="exam-depth-shell">
-        <div class="concept-banner exam-depth-banner"><span>KLAUSURTIEFE</span><h2>Methodenwahl, Spezialfälle und Punktefallen</h2><p>Dieser Bereich ergänzt das Grundverfahren um Entscheidungen, die in schwierigeren EF-Aufgaben den Unterschied machen.</p></div>
-        <div class="grid grid-2">
-          <article class="card depth-card"><h3>Entscheidungsweg</h3><ol class="depth-steps">${ext.decision.map((item,index)=>`<li><b>${index+1}</b><span>${esc(item)}</span></li>`).join('')}</ol></article>
-          <article class="card depth-card"><h3>Alternative Zugänge</h3><div class="depth-chips">${ext.alternative.map(item=>`<span>${esc(item)}</span>`).join('')}</div><p>Wähle nicht automatisch den längsten Weg. Begründe, warum dein Verfahren zur Struktur passt.</p></article>
-        </div>
-        <div class="grid grid-2">
-          <article class="card depth-card"><h3>Spezialfälle</h3><ul class="check-list">${ext.specialCases.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></article>
-          <article class="card depth-card danger-depth"><h3>Typische Punktefallen</h3><ul class="trap-list">${ext.traps.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></article>
-        </div>
-        <article class="card checklist-card"><div><div class="eyebrow">ABGABECHECK</div><h3>Bevor du in der Klausur weitergehst</h3></div><div class="exam-checklist">${ext.examChecklist.map(item=>`<label><input type="checkbox"><span>${esc(item)}</span></label>`).join('')}</div><button class="btn primary" id="depth-challenge">Schwere Parallelaufgabe erzeugen</button></article>
-      </section>` : ''}
-      <div class="card explain-back"><h3>Teach-back: Könntest du es jemandem beibringen?</h3>${deep.explainBack.map((prompt, index) => `<label><span>${index + 1}. ${prompt}</span><textarea data-teachback="${index}" placeholder="Eigene Erklärung …"></textarea></label>`).join('')}<button class="btn primary" id="save-teachback">Teach-back abschließen</button></div>
-    </div>`;
-  }
-
   function renderLessonExamples(lesson, session) {
-    markPhase(lesson.id, 'worked');
+    const exampleIndex = Math.max(0, Math.min(session.exampleIndex || 0, lesson.examples.length - 1));
+    const example = lesson.examples[exampleIndex];
+    const shown = session.exampleReveal[exampleIndex] || 0;
+    const finished = shown >= example.steps.length;
+    const allRevealed = lesson.examples.every((item, index) => (session.exampleReveal[index] || 0) >= item.steps.length);
     return `<div class="lesson-main">
-      <div class="concept-banner examples-banner"><span>Worked Examples</span><h2>Nicht abschreiben – Entscheidungen erkennen</h2><p>Versuche vor jedem aufgedeckten Schritt vorherzusagen, was als Nächstes kommt und welche Regel verwendet wird.</p></div>
-      ${lesson.examples.map((example, exampleIndex) => {
-        const shown = session.exampleReveal[exampleIndex] || 0;
-        return `<article class="card worked-example">
-          <div class="worked-head"><div><span>Beispiel ${exampleIndex + 1}</span><h2>${example.title}</h2></div><button class="btn small" data-restart-example="${exampleIndex}">Zurücksetzen</button></div>
-          <div class="prediction-box"><strong>Vorhersage vor dem Aufdecken</strong><textarea data-example-prediction="${exampleIndex}" placeholder="Ich würde als Nächstes …, weil …">${esc(session.examplePredictions[exampleIndex] || '')}</textarea><small>Ein kurzer echter Versuch reicht. Danach darfst du den nächsten Schritt aufdecken.</small></div>
-          <div class="worked-steps">${example.steps.map((step, stepIndex) => `<div class="worked-step ${stepIndex < shown ? 'revealed' : ''}"><b>${stepIndex + 1}</b><div>${stepIndex < shown ? step : '<span class="hidden-step">Schritt noch verdeckt</span>'}</div></div>`).join('')}</div>
-          ${shown < example.steps.length ? `<button class="btn primary" data-reveal-example="${exampleIndex}">Nächsten Schritt aufdecken</button>` : `<div class="insight"><strong>Strategischer Kern</strong><p>${example.insight}</p></div>`}
-        </article>`;
-      }).join('')}
-      <div class="card"><h3>Beispielvergleich</h3><p>Vergleiche die Beispiele: Welche Entscheidung war gleich, welche hing von der Aufgabenstruktur ab?</p><textarea class="reflection-area" id="example-comparison" placeholder="Gemeinsamkeit, Unterschied, Entscheidungsregel …"></textarea><button class="btn" id="save-example-comparison">Vergleich speichern</button></div>
+      <div class="concept-banner examples-banner"><span>SCHRITT 3 · BEISPIEL</span><h2>Ein Beispiel nach dem anderen</h2><p>Du sagst vor jedem Schritt voraus, was als Nächstes passieren müsste. Erst danach deckst du den echten Rechenweg auf.</p></div>
+      <div class="card journey-progress"><div><strong>Beispiel ${exampleIndex + 1} von ${lesson.examples.length}</strong><span>${finished ? 'vollständig verstanden' : `${shown} von ${example.steps.length} Schritten aufgedeckt`}</span></div>${progress(100 * (exampleIndex + (finished ? 1 : 0)) / lesson.examples.length)}</div>
+      <article class="card worked-example single-worked-example">
+        <div class="worked-head"><div><span>Aktuelles Beispiel</span><h2>${example.title}</h2></div><button class="btn small" data-restart-example="${exampleIndex}">Zurücksetzen</button></div>
+        ${!finished ? `<div class="prediction-box"><strong>Was würdest du als Nächstes tun – und warum?</strong><textarea data-example-prediction="${exampleIndex}" placeholder="Ich würde als Nächstes …, weil …">${esc(session.examplePredictions[exampleIndex] || '')}</textarea><small>Ein kurzer echter Versuch reicht. Danach darfst du genau einen Schritt aufdecken.</small></div>` : ''}
+        <div class="worked-steps">${example.steps.map((step, stepIndex) => `<div class="worked-step ${stepIndex < shown ? 'revealed' : ''}"><b>${stepIndex + 1}</b><div>${stepIndex < shown ? step : '<span class="hidden-step">Noch nicht aufgedeckt</span>'}</div></div>`).join('')}</div>
+        ${!finished ? `<button class="btn primary" data-reveal-example="${exampleIndex}">Diesen Schritt prüfen und aufdecken</button>` : `<div class="insight"><strong>Was du aus diesem Beispiel mitnehmen solltest</strong><p>${example.insight}</p></div>`}
+      </article>
+      ${finished && exampleIndex < lesson.examples.length - 1 ? '<div class="card step-success"><strong>Dieses Beispiel ist abgeschlossen.</strong><span>Beim nächsten Beispiel musst du dieselbe Grundidee in einer anderen Struktur erkennen.</span><div class="actions"><button class="btn primary" id="next-example">Nächstes Beispiel →</button></div></div>' : ''}
+      ${allRevealed ? `<div class="card"><div class="eyebrow">ABSCHLUSSCHECK</div><h3>Was war bei den Beispielen gleich – und was war unterschiedlich?</h3><p>Formuliere die Entscheidungsregel, nicht nur einzelne Rechenschritte.</p><textarea class="reflection-area" id="example-comparison" placeholder="Gemeinsamkeit, Unterschied, Entscheidungsregel …"></textarea><button class="btn primary" id="save-example-comparison">Vergleich speichern und Schritt abschließen</button></div>` : ''}
     </div>`;
   }
 
   function renderLessonGuided(lesson, session) {
     const guided = session.guided;
     return `<div class="lesson-main">
-      <div class="concept-banner guided-banner"><span>Geführtes Anwenden</span><h2>Hilfen werden stufenweise freigeschaltet</h2><p>Hinweis 1 aktiviert das Konzept, Hinweis 2 nennt die Strategie, Hinweis 3 hilft beim nächsten Rechenschritt. Die Lösung erscheint erst nach deiner Antwort.</p></div>
+      <div class="concept-banner guided-banner"><span>SCHRITT 4 · MIT HILFE</span><h2>Du rechnest – die App hilft nur so viel wie nötig</h2><p>Hinweis 1 aktiviert das Konzept, Hinweis 2 nennt die Strategie, Hinweis 3 hilft beim nächsten Rechenschritt. Die Lösung erscheint erst nach deiner Antwort.</p></div>
       ${taskCardHTML(guided.task, guided, 'guided', 'Geführte Aufgabe')}
       ${guided.answered ? `<div class="actions end-actions"><button class="btn primary" id="guided-next">Neue geführte Variante</button><button class="btn" id="guided-independent">Ohne Hilfen weiter</button></div>` : ''}
     </div>`;
@@ -867,7 +901,7 @@
   function renderLessonExplain(lesson, session) {
     const saved = state.reflections[lesson.id] || [];
     return `<div class="lesson-main">
-      <div class="concept-banner explain-banner"><span>Self Explanation</span><h2>Wer erklären kann, hat Struktur aufgebaut</h2><p>Schreibe nicht nur die Formel. Benenne Bedeutung, Entscheidung und Kontrolle.</p></div>
+      <div class="concept-banner explain-banner"><span>SCHRITT 5 · ERKLÄREN</span><h2>Erkläre, warum der Rechenweg funktioniert</h2><p>Schreibe nicht nur die Formel. Benenne Bedeutung, Entscheidung und Kontrolle.</p></div>
       <div class="card explain-task">
         <div class="eyebrow">WARUM-FRAGE</div><h2>${lesson.masterclass.explainPrompt}</h2>
         <textarea class="reflection-area large" id="lesson-reflection" placeholder="Meine Erklärung …">${esc(session.reflectionDraft || '')}</textarea>
@@ -886,16 +920,16 @@
     task.masteryDimension = index >= lesson.questions.length - 1 ? 'Transfer' : 'Verfahren';
     const qSession = session.independent;
     return `<div class="lesson-main">
-      <div class="concept-banner independent-banner"><span>Selbstständig</span><h2>Jetzt ohne Themenstütze entscheiden</h2><p>Formuliere vor dem Rechnen innerlich: „Gefragt ist …, deshalb nutze ich …“</p></div>
+      <div class="concept-banner independent-banner"><span>SCHRITT 6 · SELBST LÖSEN</span><h2>Jetzt ohne Hilfen und ohne vorgegebenes Verfahren</h2><p>Formuliere vor dem Rechnen innerlich: „Gefragt ist …, deshalb nutze ich …“</p></div>
       <div class="question-count">Aufgabe ${index + 1} von ${lesson.questions.length}</div>
       ${taskCardHTML(task, qSession, 'independent', 'Mastery-Aufgabe')}
-      ${qSession.answered ? `<div class="actions end-actions"><button class="btn primary" id="independent-next">${index + 1 < lesson.questions.length ? 'Nächste Aufgabe' : 'Neue Runde'}</button></div>` : ''}
+      ${qSession.answered ? `<div class="actions end-actions"><button class="btn primary" id="independent-next">${qSession.result?.correct ? (index + 1 < lesson.questions.length ? 'Nächste Aufgabe' : 'Schritt abschließen') : 'Aufgabe noch einmal versuchen'}</button></div>` : ''}
     </div>`;
   }
 
   function renderLessonTransfer(lesson, session) {
     return `<div class="lesson-main">
-      <div class="concept-banner transfer-banner"><span>Transfer</span><h2>Keine Überschrift verrät dir das Verfahren</h2><p>Die Aufgabe kann eine andere Darstellung oder einen neuen Kontext verwenden. Entscheidend ist, dass du die mathematische Struktur erkennst.</p></div>
+      <div class="concept-banner transfer-banner"><span>SCHRITT 7 · ANWENDEN</span><h2>Erkenne das Verfahren in einer neuen Situation</h2><p>Die Aufgabe kann eine andere Darstellung oder einen neuen Kontext verwenden. Entscheidend ist, dass du die mathematische Struktur erkennst.</p></div>
       ${taskCardHTML(session.transfer.task, session.transfer, 'transfer', 'Transfer-Challenge')}
       ${session.transfer.answered ? `<div class="actions end-actions"><button class="btn primary" id="transfer-next">Neue Transferaufgabe</button></div>` : ''}
     </div>`;
@@ -905,7 +939,7 @@
     const review = state.review[lesson.id];
     const due = review && review.due <= Date.now();
     return `<div class="lesson-main">
-      <div class="concept-banner retain-banner"><span>Langzeitabruf</span><h2>Erst abrufen, dann nachlesen</h2><p>Vergessen ist kein Scheitern. Der Versuch zu erinnern stärkt die spätere Abrufbarkeit stärker als erneutes passives Lesen.</p></div>
+      <div class="concept-banner retain-banner"><span>SCHRITT 8 · SICHERN</span><h2>Später erinnern, statt sofort wieder lesen</h2><p>Vergessen ist kein Scheitern. Der Versuch zu erinnern stärkt die spätere Abrufbarkeit stärker als erneutes passives Lesen.</p></div>
       <div class="grid grid-2">
         <div class="card"><h3>Wiederholungsstatus</h3><div class="review-status ${due ? 'due' : ''}"><strong>${due ? 'Jetzt fällig' : review ? `Geplant: ${formatDate(review.due, true)}` : 'Noch nicht geplant'}</strong><span>Stufe ${review?.stage || 0} von 6</span></div><p>Eine sichere richtige Antwort vergrößert den Abstand. Unsicherheit verkürzt ihn, selbst wenn das Ergebnis korrekt war.</p><button class="btn primary" id="start-retrieval">Abrufaufgabe starten</button></div>
         <div class="card"><h3>Exit-Ticket</h3>${lesson.masterclass.exit.map((question, i) => `<label class="exit-question">${i + 1}. ${question}<textarea data-exit-answer="${i}" placeholder="kurze Antwort ohne Nachlesen …"></textarea></label>`).join('')}<button class="btn" id="save-exit">Exit-Ticket speichern</button></div>
@@ -916,10 +950,10 @@
 
   function renderLesson() {
     const lesson = getLesson(state.lesson) || DATA.lessons[0];
+    if (state.lessonTab === 'deep' || !LESSON_FLOW.some(step => step.id === state.lessonTab)) state.lessonTab = nextLessonTab(lesson);
     const session = getLessonSession(lesson.id);
     let body;
     if (state.lessonTab === 'concept') body = renderLessonConcept(lesson, session);
-    else if (state.lessonTab === 'deep') body = renderLessonDeep(lesson);
     else if (state.lessonTab === 'examples') body = renderLessonExamples(lesson, session);
     else if (state.lessonTab === 'guided') body = renderLessonGuided(lesson, session);
     else if (state.lessonTab === 'explain') body = renderLessonExplain(lesson, session);
@@ -929,83 +963,44 @@
     else body = renderLessonOverview(lesson);
 
     main.innerHTML = `<div class="page lesson-page">
-      <button class="back" id="lesson-back">← Masterclasses</button>
-      <div class="lesson-hero deep-lesson-hero">
-        <div><div class="lesson-meta">${pill(lesson.domain, 'cyan')}${pill(lesson.level)}${pill(`${lesson.minutes} Min.`)}${pill(lesson.competencies.join(' · '), 'green')}</div><h1>${lesson.title}</h1><p>${lesson.summary}</p></div>
-        ${ring(lessonMastery(lesson.id))}
-      </div>
-      ${lessonTabs(lesson)}
-      <div class="lesson-layout">${body}${masteryPanelHTML(lesson)}</div>
+      <button class="back" id="lesson-back">← Themenübersicht</button>
+      <div class="lesson-hero deep-lesson-hero"><div><div class="lesson-meta">${pill(lesson.domain, 'cyan')}${pill(lesson.level)}${pill(`${lesson.minutes} Min.`)}</div><h1>${lesson.title}</h1><p>${lesson.summary}</p></div>${ring(lessonMastery(lesson.id))}</div>
+      ${lessonFlowHTML(lesson)}
+      <div class="lesson-layout linear-lesson-layout">${body}${lessonActionBarHTML(lesson)}${masteryPanelHTML(lesson)}</div>
     </div>`;
 
     document.getElementById('lesson-back').onclick = () => route('learn');
     document.getElementById('lesson-infinite').onclick = () => startGenerator(generatorForLesson(lesson.id));
     const visualButton = document.getElementById('lesson-visual');
     if (visualButton) visualButton.onclick = () => startVisualLab(lesson.id);
-    main.querySelectorAll('[data-lesson-tab]').forEach(button => button.onclick = () => { state.lessonTab = button.dataset.lessonTab; saveState(); render(); });
+    main.querySelectorAll('[data-flow-step]').forEach(button => button.onclick = () => { state.lessonTab = button.dataset.flowStep; saveState(); render(); });
+    const currentIndex = LESSON_FLOW.findIndex(step => step.id === state.lessonTab);
+    document.getElementById('flow-previous')?.addEventListener('click', () => { if (currentIndex > 0) { state.lessonTab = LESSON_FLOW[currentIndex - 1].id; saveState(); render(); } });
+    document.getElementById('flow-next')?.addEventListener('click', () => { if (lessonStepComplete(lesson, state.lessonTab) && currentIndex < LESSON_FLOW.length - 1) { state.lessonTab = LESSON_FLOW[currentIndex + 1].id; saveState(); render(); } });
+    document.getElementById('flow-finish')?.addEventListener('click', () => route('learn'));
 
     if (state.lessonTab === 'overview') {
-      document.getElementById('prereq-diagnostic').onclick = () => {
-        state.practice = createPractice([lesson.id], 5);
-        route('practice');
-      };
+      document.getElementById('begin-lesson').onclick = () => { markPhase(lesson.id, 'orient'); state.lessonTab = 'concept'; saveState(); render(); };
+      document.getElementById('prereq-diagnostic')?.addEventListener('click', () => { state.practice = createPractice([lesson.id], 5); route('practice'); });
     }
     if (state.lessonTab === 'concept') {
+      const step = session.conceptStep || 0;
       const answer = document.getElementById('concept-answer');
-      if (answer) answer.oninput = event => { session.conceptAnswers[session.conceptStep || 0] = event.target.value; saveState(); };
-      document.getElementById('concept-hint')?.addEventListener('click', () => {
-        const hint = document.getElementById('concept-hint-text');
-        hint.hidden = !hint.hidden;
-      });
+      if (answer) answer.oninput = event => { session.conceptAnswers[step] = event.target.value; saveState(); };
+      document.getElementById('concept-hint')?.addEventListener('click', () => { const hint = document.getElementById('concept-hint-text'); hint.hidden = !hint.hidden; });
       document.getElementById('concept-check')?.addEventListener('click', () => {
-        const step = session.conceptStep || 0;
         const text = document.getElementById('concept-answer')?.value.trim() || '';
         if (text.length < 18) return toast('Schreibe mindestens einen kurzen eigenen Gedanken oder ein Mini-Beispiel.');
-        session.conceptAnswers[step] = text;
-        session.conceptCompleted[step] = true;
-        state.xp += 6;
-        updateMastery(lesson.id, 'understanding', 2);
-        saveState();
-        render();
+        session.conceptAnswers[step] = text; session.conceptReflectionDone[step] = true; state.xp += 3; saveState(); render();
       });
-      document.getElementById('concept-next')?.addEventListener('click', () => {
-        session.conceptStep = Math.min(lesson.sections.length - 1, (session.conceptStep || 0) + 1);
-        saveState(); render();
+      const mini = session.conceptTasks[step];
+      if (session.conceptReflectionDone[step] && mini) bindTaskCard(mini.task, mini, 'concept-mini', 'concept-mini', result => {
+        if (result.correct) { session.conceptCompleted[step] = true; updateMastery(lesson.id, 'understanding', 2); state.xp += 3; }
       });
-      document.getElementById('concept-finish')?.addEventListener('click', () => {
-        markPhase(lesson.id, 'concept'); state.lessonTab = 'examples'; saveState(); render();
-      });
-      main.querySelectorAll('[data-concept-jump]').forEach(button => button.onclick = () => {
-        const target = Number(button.dataset.conceptJump);
-        const current = session.conceptStep || 0;
-        if (target > current && !session.conceptCompleted[current]) return toast('Schließe zuerst den aktuellen Denk-Check ab.');
-        session.conceptStep = target; saveState(); render();
-      });
-    }
-    if (state.lessonTab === 'deep') {
-      main.querySelectorAll('[data-why-recall]').forEach(button => button.onclick = () => {
-        const el = document.getElementById(`why-recall-${button.dataset.whyRecall}`);
-        el.hidden = !el.hidden;
-        button.textContent = el.hidden ? 'Ausblenden & selbst erklären' : 'Erklärung wieder anzeigen';
-      });
-      main.querySelectorAll('[data-save-why]').forEach(button => button.onclick = () => {
-        const index = Number(button.dataset.saveWhy);
-        const text = document.querySelector(`#why-recall-${index} textarea`)?.value.trim();
-        if (!text || text.length < 25) return toast('Erkläre den Zusammenhang noch etwas ausführlicher.');
-        const key = `deep-${lesson.id}`;
-        if (!Array.isArray(state.reflections[key])) state.reflections[key] = [];
-        state.reflections[key][index] = text;
-        state.xp += 8; updateMastery(lesson.id, 'understanding', 2); saveState(); toast('Warum-Erklärung gespeichert · +8 XP');
-      });
-      const depthChallenge = document.getElementById('depth-challenge');
-      if (depthChallenge) depthChallenge.onclick = () => startGenerator(generatorForLesson(lesson.id, true), 4);
-      document.getElementById('save-teachback').onclick = () => {
-        const values = [...main.querySelectorAll('[data-teachback]')].map(el => el.value.trim()).filter(Boolean);
-        if (values.length < 2 || values.join(' ').length < 80) return toast('Beantworte mindestens zwei Teach-back-Fragen ausführlich.');
-        const key = `teachback-${lesson.id}`;
-        state.reflections[key] = values;
-        state.xp += 18; updateMastery(lesson.id, 'understanding', 4); updateMastery(lesson.id, 'transfer', 2); saveState(); toast('Teach-back abgeschlossen · +18 XP');
-      };
+      document.getElementById('concept-retry')?.addEventListener('click', () => { session.conceptTasks[step] = { task: newConceptTask(lesson.id), input: '', selected: '', confidence: 2, hints: 0, answered: false, result: null }; saveState(); render(); });
+      document.getElementById('concept-next')?.addEventListener('click', () => { session.conceptStep = Math.min(lesson.sections.length - 1, step + 1); saveState(); render(); });
+      document.getElementById('concept-finish')?.addEventListener('click', () => { markPhase(lesson.id, 'concept'); state.lessonTab = 'examples'; saveState(); render(); });
+      main.querySelectorAll('[data-concept-jump]').forEach(button => button.onclick = () => { const target = Number(button.dataset.conceptJump); if (target > step && !session.conceptCompleted[step]) return toast('Schließe zuerst Erklärung und Mini-Aufgabe des aktuellen Gedankens ab.'); session.conceptStep = target; saveState(); render(); });
     }
     if (state.lessonTab === 'examples') bindExamples(lesson, session);
     if (state.lessonTab === 'guided') bindGuided(lesson, session);
@@ -1024,22 +1019,28 @@
     main.querySelectorAll('[data-reveal-example]').forEach(button => button.onclick = () => {
       const i = Number(button.dataset.revealExample);
       const prediction = (session.examplePredictions[i] || '').trim();
-      if (prediction.length < 8) return toast('Versuche zuerst kurz vorherzusagen, was als Nächstes passiert.');
+      if (prediction.length < 8) return toast('Sage zuerst kurz voraus, was du als Nächstes tun würdest.');
       session.exampleReveal[i] = (session.exampleReveal[i] || 0) + 1;
       session.examplePredictions[i] = '';
       if (session.exampleReveal[i] >= lesson.examples[i].steps.length) updateMastery(lesson.id, 'understanding', 2);
       saveState(); render();
     });
     main.querySelectorAll('[data-restart-example]').forEach(button => button.onclick = () => {
-      session.exampleReveal[Number(button.dataset.restartExample)] = 0; saveState(); render();
+      const i = Number(button.dataset.restartExample);
+      session.exampleReveal[i] = 0; session.examplePredictions[i] = ''; saveState(); render();
     });
-    document.getElementById('save-example-comparison').onclick = () => {
-      const text = document.getElementById('example-comparison').value.trim();
+    document.getElementById('next-example')?.addEventListener('click', () => {
+      session.exampleIndex = Math.min(lesson.examples.length - 1, (session.exampleIndex || 0) + 1); saveState(); render();
+    });
+    document.getElementById('save-example-comparison')?.addEventListener('click', () => {
+      const text = document.getElementById('example-comparison')?.value.trim() || '';
       if (text.length < 20) return toast('Vergleiche die Beispiele etwas ausführlicher.');
       if (!state.reflections[lesson.id]) state.reflections[lesson.id] = [];
       state.reflections[lesson.id].unshift({ text, score: 3, type: 'example-comparison', created: Date.now() });
-      state.xp += 12; updateMastery(lesson.id, 'understanding', 3); saveState(); toast('Vergleich gespeichert · +12 XP');
-    };
+      session.exampleComparisonDone = true;
+      markPhase(lesson.id, 'worked');
+      state.xp += 12; updateMastery(lesson.id, 'understanding', 3); saveState(); render(); toast('Beispiele abgeschlossen · +12 XP');
+    });
   }
 
   function bindGuided(lesson, session) {
@@ -1093,7 +1094,7 @@
       if (result.correct && index === lesson.questions.length - 1) markPhase(lesson.id, 'independent');
     });
     document.getElementById('independent-next')?.addEventListener('click', () => {
-      session.independentIndex = index + 1 < lesson.questions.length ? index + 1 : 0;
+      if (session.independent.result?.correct) session.independentIndex = index + 1 < lesson.questions.length ? index + 1 : index;
       session.independent = { input: '', selected: '', confidence: 2, hints: 0, answered: false, result: null };
       saveState(); render();
     });
@@ -1568,7 +1569,7 @@
       </div>
       <section class="card visual-reflection"><div><div class="eyebrow">PREDICT → OBSERVE → EXPLAIN</div><h3>Was hat sich verändert – und warum?</h3></div><textarea id="visual-reflection" placeholder="Meine Vorhersage, Beobachtung und mathematische Erklärung …"></textarea><button class="btn" id="visual-save">Erkenntnis speichern</button></section>
     </div>`;
-    document.getElementById('visual-back').onclick = () => openLesson(session.lessonId, 'deep');
+    document.getElementById('visual-back').onclick = () => openLesson(session.lessonId, 'concept');
     document.getElementById('visual-challenge').onclick = () => startGenerator(generatorForLesson(session.lessonId, true), 4);
     document.getElementById('visual-save').onclick = () => {
       const text=document.getElementById('visual-reflection').value.trim();
@@ -1633,7 +1634,7 @@
     if (!session?.active && !session?.submitted) {
       main.innerHTML = `<div class="page">
         ${pageHead('MISCHMISSIONEN', 'Mehrteilige Aufgaben statt isolierter Antwortboxen', 'Jede Fallstudie verbindet mehrere EF-Kompetenzen in einem gemeinsamen Kontext. Die Aufgaben sind synthetisch im NRW-Stil und keine kopierten Originalklausuren.')}
-        <div class="case-intro card"><div><span class="eyebrow">V1.1 · TRANSFER</span><h2>Ein Kontext, mehrere mathematische Entscheidungen</h2><p>Du musst Ergebnisse aus früheren Teilaufgaben weiterverwenden, Einheiten deuten, Modelle begrenzen und Methoden selbst auswählen.</p></div><div class="case-flow"><span>Verstehen</span><i>→</i><span>Rechnen</span><i>→</i><span>Vernetzen</span><i>→</i><span>Beurteilen</span></div></div>
+        <div class="case-intro card"><div><span class="eyebrow">V1.2 · TRANSFER</span><h2>Ein Kontext, mehrere mathematische Entscheidungen</h2><p>Du musst Ergebnisse aus früheren Teilaufgaben weiterverwenden, Einheiten deuten, Modelle begrenzen und Methoden selbst auswählen.</p></div><div class="case-flow"><span>Verstehen</span><i>→</i><span>Rechnen</span><i>→</i><span>Vernetzen</span><i>→</i><span>Beurteilen</span></div></div>
         <div class="grid grid-2 case-choice-grid">${(V6.caseCards || []).map(([id,title,desc,meta]) => `<button class="card case-choice" data-case="${id}"><span>${meta}</span><h2>${title}</h2><p>${desc}</p><strong>Mission starten →</strong></button>`).join('')}</div>
       </div>`;
       main.querySelectorAll('[data-case]').forEach(button => button.onclick = () => startCaseStudy(button.dataset.case));
@@ -1771,7 +1772,7 @@
       const cards = [...(V5.examCards || []), ...(V6.examCards || [])];
       main.innerHTML = `<div class="page">
         ${pageHead('KLAUSURZENTRUM 1.0', 'NRW-EF mit Teil A/B, Operatoren und fünfteiliger Rubrik', 'Ergebnis, Strategie, Zwischenschritte, Begründung und Kontrolle werden getrennt betrachtet. Die Bewertung bleibt eine transparente Lern-Näherung.')}
-        <div class="exam-blueprint-note"><strong>V1.1:</strong><span>${cards.length} Klausurformate · hilfsmittelfreie und hilfsmittelgestützte Teile · Operatorhilfen · Erwartungshorizont · Reparaturroute</span></div>
+        <div class="exam-blueprint-note"><strong>V1.2:</strong><span>${cards.length} Klausurformate · hilfsmittelfreie und hilfsmittelgestützte Teile · Operatorhilfen · Erwartungshorizont · Reparaturroute</span></div>
         <div class="grid grid-2 exam-choice-grid">${cards.map(([id,time,title,desc,count])=>`<button class="card exam-choice" data-exam="${id}"><span>${time}</span><h2>${title}</h2><p>${desc}</p><strong>${count}</strong></button>`).join('')}</div>
         ${state.examHistory?.length ? `<div class="card"><h3>Letzte Simulationen</h3>${state.examHistory.slice(0,5).map(item=>`<div class="history-row"><span>${formatDate(item.created,true)}</span><strong>${item.title}</strong><b>${item.percent}% · ${item.grade}</b></div>`).join('')}</div>`:''}
       </div>`;
@@ -1891,7 +1892,7 @@
   function renderErrors() {
     const unresolved=state.errors.filter(error=>!error.resolved);
     const groups={};unresolved.forEach(error=>{const key=error.diagnosis?.type||'Unklassifiziert';(groups[key]||(groups[key]=[])).push(error);});
-    main.innerHTML=`<div class="page">${pageHead('FEHLERLABOR','Fehler werden zerlegt und repariert','Nicht „falsch“ ist die Diagnose. V1.1 trennt Konzept, Methodenwahl, Algebra, Vorzeichen, Darstellung, Begründung, Interpretation, Kontrolle und Flüchtigkeit.',`<button class="btn danger" id="clear-resolved">Erledigte löschen</button>`)}
+    main.innerHTML=`<div class="page">${pageHead('FEHLERLABOR','Fehler werden zerlegt und repariert','Nicht „falsch“ ist die Diagnose. V1.2 trennt Konzept, Methodenwahl, Algebra, Vorzeichen, Darstellung, Begründung, Interpretation, Kontrolle und Flüchtigkeit.',`<button class="btn danger" id="clear-resolved">Erledigte löschen</button>`)}
       <div class="grid grid-4">${Object.entries(groups).slice(0,4).map(([type,items])=>`<div class="card stat-card"><div class="label">${esc(type)}</div><div class="value">${items.length}</div><div class="delta">offene Fehler</div></div>`).join('')||'<div class="card empty"><h3>Keine offenen Fehler</h3></div>'}</div>
       <div class="error-lab-list">${unresolved.map(error=>`<article class="card error-lab-card"><div class="error-head"><div>${pill(error.diagnosis?.type||'Fehler','danger')}<small>${formatDate(error.created,true)} · ${getLesson(error.lessonId)?.title||error.lessonId}</small></div><button class="btn small" data-resolve-error="${error.id}">Als repariert prüfen</button></div><h3>${error.prompt}</h3><div class="error-comparison"><div><span>Deine Antwort</span><strong>${esc(error.user)}</strong></div><div><span>Erwartet</span><strong>${esc(Array.isArray(error.answer)?error.answer.join(', '):error.answer)}</strong></div></div><div class="diagnosis-box"><strong>${esc(error.diagnosis?.title||'Fehlerursache')}</strong><p>${esc(error.diagnosis?.repair||'Vergleiche den ersten abweichenden Schritt.')}</p>${error.workAnalysis?`<div class="work-evidence"><span>Ebene: ${esc(error.workAnalysis.layer||'–')}</span><span>${error.workAnalysis.strategyHits||0} Strategie-Signale</span><span>${error.workAnalysis.equalities||0} Gleichheitszeichen</span><span>${error.workAnalysis.lines||0} Schritte</span></div>`:''}</div><details><summary>Vollständigen Lösungsweg öffnen</summary>${solutionHTML(error)}</details>${error.reflection?`<div class="saved-reflection"><strong>Deine Reflexion</strong><p>${esc(error.reflection)}</p></div>`:''}${(()=>{const repair=repairPhasesFor(error);return `<div class="repair-protocol"><strong>${repair.key}-Reparatur in drei Stufen</strong><ol>${repair.phases.map(p=>`<li>${esc(p)}</li>`).join('')}</ol></div>`})()}<div class="actions"><button class="btn primary" data-repair-task="${error.id}">Parallelaufgabe</button><button class="btn" data-repair-path="${error.id}">Rechenweg-Mission</button></div></article>`).join('')}</div>
     </div>`;
@@ -2005,7 +2006,7 @@
         <div class="settings-row"><div><strong>Als App installieren</strong><p class="subtitle">Auf unterstützten Geräten direkt zum Home-Bildschirm hinzufügen. Die App funktioniert nach dem ersten Laden offline.</p></div><button class="btn" id="install-app">Installieren</button></div>
         <div class="settings-row"><div><strong>Interne Systemprüfung</strong><p class="subtitle">Prüft Module, Kompetenzen, Generatoren, Klausurverweise und Mischmissionen direkt im Browser.</p>${audit?`<small class="audit-status ${audit.passed?'ok':'warn'}">${audit.passed?'✓ Bestanden':'! Hinweise'} · ${formatDate(audit.created,true)}${audit.issues?.length?` · ${audit.issues.map(esc).join(', ')}`:''}</small>`:''}</div><button class="btn" id="run-audit">Jetzt prüfen</button></div>
         <div class="settings-row"><div><strong>Lernstand zurücksetzen</strong><p class="subtitle">Entfernt Mastery, Fehler, XP und Klausuren dauerhaft auf diesem Gerät.</p></div><button class="btn danger" id="reset-all">Alles löschen</button></div>
-        <div class="settings-row"><div><strong>Technischer Status</strong><p class="subtitle">GitHub Flat · lokales MathJax · Offline-Cache · lokale Speicherung · 5-teilige Rechenweg-Rubrik · ${ENGINE.generatorCatalog.length} Generatoren · ${(V5.examCards?.length||0)+(V6.examCards?.length||0)} Klausurformate</p></div><div class="status-stack"><span class="pill green">V1.1 ACTIVE LEARNING</span><span class="pill ${online?'green':'cyan'}">${online?'Online':'Offline bereit'}</span></div></div>
+        <div class="settings-row"><div><strong>Technischer Status</strong><p class="subtitle">GitHub Flat · lokales MathJax · Offline-Cache · lokale Speicherung · 5-teilige Rechenweg-Rubrik · ${ENGINE.generatorCatalog.length} Generatoren · ${(V5.examCards?.length||0)+(V6.examCards?.length||0)} Klausurformate</p></div><div class="status-stack"><span class="pill green">V1.2 GUIDED PATHS</span><span class="pill ${online?'green':'cyan'}">${online?'Online':'Offline bereit'}</span></div></div>
       </div>
     </div>`;
     document.getElementById('theme-toggle').onclick=()=>{state.theme=state.theme==='light'?'dark':'light';saveState();applyTheme();render();};

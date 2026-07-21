@@ -1,15 +1,16 @@
-MATHFORGE NRW V1.0 FINAL – GITHUB UPLOAD
+MATHFORGE NRW V1.2 – GITHUB UPLOAD
 
 1. ZIP entpacken.
 2. Alle enthaltenen Dateien direkt in die oberste Ebene deines GitHub-Repositorys hochladen.
-3. Vorhandene ältere MATHFORGE-Dateien vollständig ersetzen.
-4. GitHub: Settings → Pages.
+3. Die bisherigen MATHFORGE-Dateien vollständig ersetzen.
+4. GitHub öffnen: Settings → Pages.
 5. Source: Deploy from a branch.
 6. Branch: main; Folder: / (root).
-7. Speichern und anschließend die GitHub-Pages-Adresse öffnen.
+7. Speichern und die GitHub-Pages-Adresse neu laden.
 
 WICHTIG
 - Keine Unterordner erstellen.
-- Keine JS-Dateien umbenennen.
+- Keine JavaScript-Dateien umbenennen.
 - index.html, styles.css, app.js, alle mathforge-*-Dateien, MathJax, Manifest, Service Worker und Icons gemeinsam hochladen.
-- Beim ersten Aufruf einmal online laden, damit der Offline-Cache eingerichtet wird.
+- Der vorhandene Lernstand bleibt im gleichen Browser erhalten.
+- Nach dem ersten vollständigen Laden steht die App auch offline bereit.

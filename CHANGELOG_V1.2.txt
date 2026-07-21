@@ -1,0 +1,37 @@
+MATHFORGE NRW V1.2 – GUIDED PATHS
+
+HAUPTÄNDERUNG
+- Die neun früheren Themen-Tabs wurden durch einen linearen 8-Schritte-Lernpfad ersetzt.
+- Zukünftige Schritte sind gesperrt, bis die vorherigen Schritte abgeschlossen wurden.
+- Jeder Bildschirm zeigt den aktuellen Schritt, die Abschlussbedingung und den nächsten Schritt.
+
+NEUER LERNABLAUF
+1. Start
+2. Verstehen
+3. Beispiel
+4. Mit Hilfe
+5. Erklären
+6. Selbst lösen
+7. Anwenden
+8. Sichern
+
+AKTIVES VERSTEHEN
+- Jeder Theorieabschnitt endet mit einer eigenen Erklärung.
+- Danach muss eine passende Mini-Aufgabe selbst gelöst werden.
+- Erst Erklärung plus richtige Mini-Aufgabe schalten den nächsten Gedanken frei.
+
+BEISPIELE
+- Es erscheint nur noch ein Beispiel gleichzeitig.
+- Vor jedem Rechenschritt ist eine eigene Vorhersage erforderlich.
+- Das nächste Beispiel wird erst nach Abschluss des aktuellen Beispiels freigeschaltet.
+- Ein Abschlussvergleich prüft die zugrunde liegende Entscheidungsregel.
+
+ÜBERSICHT
+- „Kompass“ und „Warum-Labor“ wurden aus der sichtbaren Hauptnavigation entfernt.
+- Ausführliche Herleitungen sind weiterhin optional aufklappbar.
+- Fortschrittswerte und Spezialwerkzeuge befinden sich in „Fortschritt und Zusatzwerkzeuge“.
+- Themenkarten zeigen jetzt den konkreten nächsten Schritt statt vier paralleler Mastery-Balken.
+
+KOMPATIBILITÄT
+- Lernstände aus V1.1, V1.0, V0.6, V0.5, V0.4, V0.3 und V0.2 werden übernommen.
+- GitHub-Flat-Struktur, Offline-Cache und lokale Speicherung bleiben erhalten.

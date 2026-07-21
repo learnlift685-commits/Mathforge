@@ -1,5 +1,5 @@
 'use strict';
-const CACHE = 'mathforge-nrw-v1.0.0';
+const CACHE = 'mathforge-nrw-v1.2.0';
 const ASSETS = [
   './', './index.html', './styles.css', './app.js',
   './mathforge-data.js', './mathforge-v03-data.js', './mathforge-v05-data.js', './mathforge-v06-data.js',

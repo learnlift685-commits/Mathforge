@@ -1,30 +1,29 @@
-# MATHFORGE NRW V1.1 – ACTIVE LEARNING
+# MATHFORGE NRW V1.2 – GUIDED PATHS
 
-V1.1 baut auf der vollständigen V1.0 auf und verändert vor allem die Art, wie Erklärungen gelernt werden. Lange Textblöcke werden nicht mehr einfach untereinander angezeigt.
+V1.2 baut auf dem vollständigen V1.1-Inhalt auf und verändert die Navigation innerhalb jedes Mathe-Themas grundlegend. Statt mehrerer gleichwertiger Tabs führt die App nun durch einen festen Lernpfad.
 
-## Neu in V1.1
+## Der neue Lernpfad
 
-- Ein Gedanke pro Lernschritt
-- sichtbarer Fortschritt innerhalb jeder Erklärung
-- verpflichtender eigener Abruf vor dem nächsten Abschnitt
-- Denkhinweise statt sofortiger Lösung
-- kleine eigene Beispiele und Erklärungen
-- frei zugängliche kompakte Nachschlageübersicht
-- Worked Examples verlangen vor jedem Schritt eine Vorhersage
-- vorhandener Lernstand aus V1.0 und älteren Versionen wird übernommen
+1. Start – Ziel und Ablauf verstehen
+2. Verstehen – einen Gedanken lesen, selbst erklären und eine Mini-Aufgabe lösen
+3. Beispiel – jeden Rechenschritt zuerst vorhersagen
+4. Mit Hilfe – eine Aufgabe mit gestuften Hinweisen lösen
+5. Erklären – begründen, warum das Verfahren funktioniert
+6. Selbst lösen – ohne Hilfen rechnen
+7. Anwenden – das Verfahren in einer neuen Situation erkennen
+8. Sichern – zeitversetzt abrufen und Exit-Fragen beantworten
 
-## Lernablauf
+Zukünftige Schritte bleiben gesperrt, bis der aktuelle Schritt wirklich bearbeitet wurde. Am unteren Rand zeigt die App immer, was noch fehlt und welcher Schritt danach kommt.
 
-1. Einen kurzen Abschnitt verstehen.
-2. Ohne Abschreiben selbst erklären.
-3. Mini-Beispiel oder zentrale Idee formulieren.
-4. Rückmeldung erhalten.
-5. Erst danach zum nächsten Gedanken wechseln.
-6. Bei Beispielen den nächsten Rechenschritt vorhersagen.
-7. Anschließend geführt und selbstständig rechnen.
+## Weniger Überladung
 
-## GitHub Pages
+- keine Tabs wie „Kompass“ oder „Warum-Labor“ in der Hauptnavigation
+- pro Bildschirm nur eine aktuelle Lernaufgabe
+- Beispiele erscheinen einzeln statt untereinander
+- Theorie wird nach jedem Abschnitt durch eine eigene Erklärung und eine echte Mini-Aufgabe unterbrochen
+- Fortschritt und Spezialwerkzeuge liegen in einem freiwillig aufklappbaren Bereich
+- ausführliche Herleitungen bleiben als optionale Vertiefung erhalten
 
-Alle Dateien liegen weiterhin flach nebeneinander. Nach dem Entpacken sämtliche Dateien direkt in die oberste Ebene des Repositorys hochladen und ältere MATHFORGE-Dateien ersetzen.
+## Technischer Aufbau
 
-Die App benötigt kein Konto, kein Backend und keinen Build-Schritt. Lernstände werden lokal im Browser gespeichert.
+Alle Dateien liegen flach nebeneinander und können direkt in die oberste Ebene eines GitHub-Repositorys hochgeladen werden. Es gibt kein Konto, kein Backend und keinen Build-Schritt. Lernstände aus V1.1 und älteren Versionen werden automatisch übernommen und lokal im Browser gespeichert.

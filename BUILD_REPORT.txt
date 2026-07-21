@@ -1,13 +1,45 @@
-MATHFORGE NRW V1.1 – BUILD REPORT
+MATHFORGE NRW V1.2 – BUILD REPORT
 
-Geprüft:
-- JavaScript-Syntax mit Node.js: bestanden
-- flache GitHub-Pages-Struktur: bestanden
-- Migration von V1.0 über mathforge_nrw_v10: eingebaut
-- geführter Konzeptpfad für alle vorhandenen Masterclasses: datengetrieben verfügbar
-- Pflicht-Abruf vor dem Weitergehen: eingebaut
-- Vorhersagepflicht bei Worked Examples: eingebaut
-- responsive CSS für iPad und Mobilgeräte: ergänzt
-- keine neuen externen Abhängigkeiten: bestätigt
+ZIEL
+Die Themenansicht wurde von mehreren frei wählbaren Lern-Tabs auf einen eindeutigen linearen Lernpfad umgestellt.
 
-Die mathematischen Inhalte, Generatoren, Klausuren und Visual-Labore der V1.0 bleiben erhalten. V1.1 verändert primär die didaktische Präsentation und aktive Verarbeitung.
+GEPRÜFTER LERNPFAD
+1. Start
+2. Verstehen
+3. Beispiel
+4. Mit Hilfe
+5. Erklären
+6. Selbst lösen
+7. Anwenden
+8. Sichern
+
+FUNKTIONSKONTROLLEN
+- genau 8 Lernschritte vorhanden
+- zukünftige Schritte werden durch lessonStepUnlocked gesperrt
+- pro Schritt wird eine klare Abschlussbedingung angezeigt
+- ein zentraler Zurück-/Weiter-Bereich ist vorhanden
+- „Kompass“ und „Warum-Labor“ kommen in der sichtbaren App-Logik nicht mehr vor
+- Theorieabschnitte enthalten aktive Denkfragen und Mini-Aufgaben
+- Beispiele werden einzeln statt gestapelt dargestellt
+- falsche selbstständige Aufgaben müssen erneut bearbeitet werden
+- Zusatzwerkzeuge und Detailstatistiken sind einklappbar
+
+TECHNISCHE PRÜFUNGEN
+- JavaScript-Syntax aller JavaScript-Dateien: bestanden
+- HTML-Dateiverweise: vollständig
+- Service-Worker-Dateiverweise: vollständig
+- CSS-Klammerstruktur: bestanden
+- Offline-Cache auf mathforge-nrw-v1.2.0 aktualisiert
+- lokaler Speicher auf mathforge_nrw_v12 aktualisiert
+- automatische Übernahme von V1.1 und älteren Lernständen vorhanden
+
+MATHEMATISCHE REGRESSIONSPRÜFUNG
+- 91 Generatorfamilien erkannt
+- 1.820 zufällig erzeugte Aufgaben geprüft
+- jede hinterlegte korrekte Lösung wurde von der Antwortprüfung akzeptiert
+- 0 verbleibende Generatorfehler
+- 24 Lektionen geprüft
+- keine Lektion ohne Theorieabschnitt, Beispiel oder feste Aufgabe
+
+HINWEIS ZUR VISUELLEN PRÜFUNG
+Eine automatisierte Chromium-Darstellung lokaler Seiten wurde in dieser Laufzeitumgebung durch eine verwaltete URL-Sperre blockiert. Deshalb wurden Struktur, Styles, Dateiverweise, Syntax und Lernlogik automatisiert geprüft; nach dem GitHub-Upload sollte die Darstellung einmal auf dem iPad kontrolliert werden.
